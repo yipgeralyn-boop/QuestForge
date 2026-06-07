@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>QuestForge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Baloo+2:wght@400;500;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    background: #211a2e;
+    background-image: radial-gradient(circle at 20% 15%, #2e2440, transparent 55%),
+                      radial-gradient(circle at 85% 85%, #1c2c3a, transparent 55%);
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; overflow: hidden;
+    font-family: "DM Sans", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  #stage { transform-origin: center center; }
+  ::-webkit-scrollbar { width: 0; height: 0; }
+  .qf-root { scrollbar-width: none; }
+  button { font-family: inherit; }
+
+  /* ── keyframes ─────────────────────────────────── */
+  @keyframes qfScreenIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes qfFadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes qfFade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes qfSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  @keyframes qfPop { 0% { transform: scale(0.4); opacity: 0; } 60% { transform: scale(1.12); } 100% { transform: scale(1); opacity: 1; } }
+  @keyframes qfPulse { 0% { transform: translate(-50%,50%) scale(0.6); opacity: 0.5; } 100% { transform: translate(-50%,50%) scale(1.5); opacity: 0; } }
+  @keyframes qfRadar { 0% { transform: scale(0.3); opacity: 0.7; } 100% { transform: scale(1); opacity: 0; } }
+  @keyframes qfFloat { 0%,100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-12px) rotate(4deg); } }
+  @keyframes qfBob { 0%,100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-4px); } }
+  @keyframes qfShake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-7px); } 40% { transform: translateX(7px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(5px); } }
+  @keyframes qfFlash { 0% { opacity: 0; } 30% { opacity: 0.95; } 100% { opacity: 0; } }
+  @keyframes qfBlink { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+  @keyframes qfConfetti { 0% { transform: translateY(0) rotate(0); opacity: 1; } 100% { transform: translateY(720px) rotate(620deg); opacity: 0.9; } }
+  @media (prefers-reduced-motion: reduce) { * { animation-duration: 0.01ms !important; } }
+
+  /* image-slot theming */
+  image-slot { --is-radius: 4px; }
+</style>
+</head>
+<body>
+  <div id="stage">
+    <div id="device-host"></div>
+  </div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script src="image-slot.js"></script>
+
+  <script type="text/babel" src="frames/ios-frame.jsx"></script>
+  <script type="text/babel" src="frames/tweaks-panel.jsx"></script>
+  <script type="text/babel" src="data.jsx"></script>
+  <script type="text/babel" src="ui.jsx"></script>
+  <script type="text/babel" src="map.jsx"></script>
+  <script type="text/babel" src="screens-home.jsx"></script>
+  <script type="text/babel" src="screens-organizer.jsx"></script>
+  <script type="text/babel" src="screens-activity.jsx"></script>
+  <script type="text/babel" src="screens-player.jsx"></script>
+  <script type="text/babel" src="app.jsx"></script>
+
+  <script type="text/babel" data-presets="react">
+    const DEVICE_W = 402, DEVICE_H = 874;
+
+    function Root() {
+      return (
+        <IOSDevice width={DEVICE_W} height={DEVICE_H}>
+          <QFApp />
+        </IOSDevice>
+      );
+    }
+
+    function fitStage() {
+      const stage = document.getElementById('stage');
+      const pad = 24;
+      const s = Math.min((window.innerWidth - pad) / DEVICE_W, (window.innerHeight - pad) / DEVICE_H, 1);
+      stage.style.transform = `scale(${s})`;
+    }
+    window.addEventListener('resize', fitStage);
+
+    function boot() {
+      if (!window.QFApp || !window.IOSDevice || !window.useTweaks) { setTimeout(boot, 30); return; }
+      ReactDOM.createRoot(document.getElementById('device-host')).render(<Root />);
+      fitStage();
+    }
+    boot();
+  </script>
+
+  <template id="__bundler_thumbnail">
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <rect width="100" height="100" fill="#FF5C39" />
+      <g transform="translate(50,50)">
+        <path d="M0 -22 L5 -3 L24 -3 L9 8 L14 26 L0 15 L-14 26 L-9 8 L-24 -3 L-5 -3 Z" fill="#FFC53D" />
+        <circle cx="0" cy="0" r="6" fill="#FF5C39" stroke="#fff" stroke-width="2" />
+      </g>
+    </svg>
+  </template>
+</body>
+</html>
