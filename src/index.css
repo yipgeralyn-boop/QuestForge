@@ -13,7 +13,7 @@ body {
 .qf-root { scrollbar-width: none; }
 button { font-family: inherit; }
 
-@keyframes qfScreenIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes qfScreenIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes qfFadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes qfFade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes qfSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Component } from 'react';
 import { THEMES, MAP_STYLES, FONT_SETS, SAMPLE_RACE } from './data.jsx';
 import { useTweaks, TweaksPanel, TweakSection, TweakColor, TweakRadio, TweakSelect } from './components/TweaksPanel.jsx';
 import IOSDevice from './components/IOSDevice.jsx';
@@ -6,6 +6,23 @@ import HomeScreen from './screens/HomeScreen.jsx';
 import { OrgBuilder, OrgStop, OrgAddActivity, OrgPublish, OrgDashboard, OrgDetails } from './screens/OrgScreens.jsx';
 import PlayActivity from './screens/ActivityScreen.jsx';
 import { PlayJoin, PlayTeamSetup, PlayLobby, PlayMap, PlayResult, PlayRecap, qfRank } from './screens/PlayerScreens.jsx';
+
+class ScreenErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { err: null }; }
+  static getDerivedStateFromError(err) { return { err }; }
+  render() {
+    if (this.state.err) {
+      return (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 }}>
+          <div style={{ fontFamily: 'system-ui', fontWeight: 700, fontSize: 16, color: '#E0564B' }}>Something went wrong</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 11, color: '#888', textAlign: 'center', wordBreak: 'break-all', maxWidth: 320 }}>{String(this.state.err)}</div>
+          <button onClick={() => { this.setState({ err: null }); this.props.onReset?.(); }} style={{ marginTop: 8, padding: '10px 18px', borderRadius: 12, border: 'none', background: '#E0564B', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>Back to home</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const TWEAK_DEFAULTS = {
   theme: 'sunset',
@@ -86,6 +103,7 @@ function QFApp() {
     case 'play': screen = <PlayMap {...common} play={play} />; break;
     case 'activity': {
       const stop = race.stops.find(s => s.id === cur.stopId);
+      if (!stop || !stop.activities || stop.activities.length === 0) { screen = <PlayMap {...common} play={play} />; break; }
       screen = <PlayActivity
         stop={stop}
         onStopDone={(earned) => { prevRankRef.current = qfRank(race, play); finishStop(earned, stop.id, stop.name); }}
@@ -105,9 +123,11 @@ function QFApp() {
       display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative',
       fontFamily: 'var(--qf-body)',
     }}>
-      <div key={screenKey} style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, animation: 'qfScreenIn .32s cubic-bezier(.2,.8,.2,1)' }}>
-        {screen}
-      </div>
+      <ScreenErrorBoundary key={screenKey} onReset={() => go({ name: 'home' })}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, animation: 'qfScreenIn .32s cubic-bezier(.2,.8,.2,1)' }}>
+          {screen}
+        </div>
+      </ScreenErrorBoundary>
 
       <TweaksPanel>
         <TweakSection label="Theme" />
