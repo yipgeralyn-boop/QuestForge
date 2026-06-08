@@ -1,6 +1,5 @@
 import { Icon, qfWord } from '../data.jsx';
 import { ScreenScroll } from '../components/UI.jsx';
-import AdventureMap from '../components/AdventureMap.jsx';
 
 export default function HomeScreen({ race, go, t, mapStyle }) {
   return (
@@ -38,7 +37,7 @@ export default function HomeScreen({ race, go, t, mapStyle }) {
             </div>
           </button>
 
-          <button onClick={() => go({ name: 'lobby', reset: true })} style={{ ...bigCard('var(--qf-ink)'), marginTop: 12 }}>
+          <button onClick={() => go({ name: 'join' })} style={{ ...bigCard('var(--qf-ink)'), marginTop: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
               <div style={iconWrap('var(--qf-accent)', 'var(--qf-accent-ink)')}><Icon name="play" size={24} stroke={2.3} /></div>
               <div style={{ flex: 1, textAlign: 'left' }}>
@@ -50,29 +49,29 @@ export default function HomeScreen({ race, go, t, mapStyle }) {
           </button>
         </div>
 
-        {/* featured quest preview */}
-        <div style={{ padding: '22px 18px 8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <span style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 17, color: 'var(--qf-ink)' }}>Your latest {qfWord(t, 'quest')}</span>
-            <span style={{ fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 12, color: 'var(--qf-secondary)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--qf-secondary)' }} /> Ready
-            </span>
-          </div>
-          <div role="button" tabIndex={0} onClick={() => go({ name: 'orgBuilder' })}
-            style={{ width: '100%', padding: 0, border: '1px solid var(--qf-line)', borderRadius: 22, overflow: 'hidden', background: 'var(--qf-surface)', cursor: 'pointer', boxShadow: '0 10px 26px -16px var(--qf-shadow)' }}>
-            <AdventureMap stops={race.stops} mapStyle={mapStyle} mode="build" height={150} />
-            <div style={{ padding: 16, textAlign: 'left' }}>
-              <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 19, color: 'var(--qf-ink)' }}>{race.name}</div>
-              <div style={{ display: 'flex', gap: 14, marginTop: 8 }}>
-                {[['pin', race.stops.length + ' stops'], ['clock', race.duration + ' min'], ['users', race.teamCount + ' teams']].map((m, i) => (
-                  <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: 'var(--qf-body)', fontWeight: 600, fontSize: 13, color: 'var(--qf-muted)' }}>
-                    <Icon name={m[0]} size={15} stroke={2.3} /> {m[1]}
-                  </span>
-                ))}
+        {/* how it works */}
+        <div style={{ padding: '24px 18px 28px' }}>
+          <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 17, color: 'var(--qf-ink)', marginBottom: 16 }}>How it works</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {[
+              ['edit',    'var(--qf-primary)',   'Build your route',        'Drop stops on the map and set a name, hint, and GPS location for each one.'],
+              ['camera',  '#E85D9E',             'Add challenges',          'Attach photo missions, quizzes, riddles, or GPS check-ins to each stop.'],
+              ['users',   'var(--qf-secondary)', 'Invite your teams',       'Share the join code or QR — teams scan in and see the same map in real time.'],
+              ['trophy',  'var(--qf-accent)',    'Race to the finish',      'First team to complete every stop and collect the most points wins.'],
+            ].map(([icon, tint, title, desc], i) => (
+              <div key={i} style={{ display: 'flex', gap: 14, padding: '14px 16px', borderRadius: 18, background: 'var(--qf-surface)', border: '1px solid var(--qf-line)' }}>
+                <div style={{ width: 42, height: 42, borderRadius: 13, background: `color-mix(in srgb, ${tint} 15%, transparent)`, color: tint, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Icon name={icon} size={21} stroke={2.3} />
+                </div>
+                <div>
+                  <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 15, color: 'var(--qf-ink)' }}>{title}</div>
+                  <div style={{ fontFamily: 'var(--qf-body)', fontSize: 13, color: 'var(--qf-muted)', marginTop: 3, lineHeight: 1.4 }}>{desc}</div>
+                </div>
               </div>
-            </div>
+            ))}
           </div>
         </div>
+
       </div>
     </ScreenScroll>
   );

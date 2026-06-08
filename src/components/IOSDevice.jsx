@@ -53,7 +53,7 @@ export default function IOSDevice({ children, width = 402, height = 874, dark = 
       </div>
       {/* content */}
       <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ flex: 1, overflow: 'auto' }}>{children}</div>
+        <div style={{ flex: 1, overflow: 'hidden' }}>{children}</div>
       </div>
       {/* home indicator */}
       <div style={{

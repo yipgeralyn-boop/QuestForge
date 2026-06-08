@@ -3,9 +3,9 @@ import { THEMES, MAP_STYLES, FONT_SETS, SAMPLE_RACE } from './data.jsx';
 import { useTweaks, TweaksPanel, TweakSection, TweakColor, TweakRadio, TweakSelect } from './components/TweaksPanel.jsx';
 import IOSDevice from './components/IOSDevice.jsx';
 import HomeScreen from './screens/HomeScreen.jsx';
-import { OrgBuilder, OrgStop, OrgAddActivity, OrgPublish } from './screens/OrgScreens.jsx';
+import { OrgBuilder, OrgStop, OrgAddActivity, OrgPublish, OrgDashboard, OrgDetails } from './screens/OrgScreens.jsx';
 import PlayActivity from './screens/ActivityScreen.jsx';
-import { PlayLobby, PlayMap, PlayResult, PlayLeaderboard, PlayRecap, qfRank } from './screens/PlayerScreens.jsx';
+import { PlayJoin, PlayLobby, PlayMap, PlayResult, PlayLeaderboard, PlayRecap, qfRank } from './screens/PlayerScreens.jsx';
 
 const TWEAK_DEFAULTS = {
   theme: 'sunset',
@@ -30,7 +30,7 @@ function QFApp() {
   const [stack, setStack] = useState([{ name: 'home' }]);
   const cur = stack[stack.length - 1];
 
-  const [play, setPlay] = useState({ idx: 0, score: 0, lastEarned: 0 });
+  const [play, setPlay] = useState({ completedIds: [], score: 0, lastEarned: 0, lastCompletedName: '' });
   const prevRankRef = useRef(null);
 
   const theme = THEMES[t.theme] || THEMES.sunset;
@@ -59,30 +59,33 @@ function QFApp() {
   function back() { setStack(s => s.length > 1 ? s.slice(0, -1) : s); }
 
   function startPlay() {
-    setPlay({ idx: 0, score: 0, lastEarned: 0 });
+    setPlay({ completedIds: [], score: 0, lastEarned: 0, lastCompletedName: '' });
     prevRankRef.current = null;
   }
 
-  function finishStop(earned) {
-    setPlay(p => ({ ...p, idx: p.idx + 1, score: p.score + earned, lastEarned: earned }));
+  function finishStop(earned, stopId, stopName) {
+    setPlay(p => ({ ...p, completedIds: [...p.completedIds, stopId], score: p.score + earned, lastEarned: earned, lastCompletedName: stopName }));
     setStack(s => [...s.filter(x => x.name !== 'activity'), { name: 'result' }]);
   }
 
-  const screenKey = cur.name + (cur.stopId || '') + (cur.name === 'result' ? play.idx : '');
+  const screenKey = cur.name + (cur.stopId || '') + (cur.name === 'result' ? play.completedIds.length : '');
   const common = { race, setRace, go, back, t, mapStyle: t.mapStyle };
 
   let screen = null;
   switch (cur.name) {
     case 'home': screen = <HomeScreen {...common} />; break;
     case 'orgBuilder': screen = <OrgBuilder {...common} />; break;
+    case 'orgDetails': screen = <OrgDetails {...common} />; break;
     case 'orgStop': screen = <OrgStop {...common} stopId={cur.stopId} />; break;
     case 'orgAdd': screen = <OrgAddActivity {...common} stopId={cur.stopId} />; break;
     case 'orgPublish': screen = <OrgPublish {...common} />; break;
+    case 'orgDash': screen = <OrgDashboard {...common} />; break;
+    case 'join': screen = <PlayJoin {...common} />; break;
     case 'lobby': screen = <PlayLobby {...common} startPlay={startPlay} />; break;
     case 'play': screen = <PlayMap {...common} play={play} />; break;
     case 'activity': {
-      const stop = race.stops[play.idx];
-      screen = <PlayActivity stop={stop} onStopDone={(earned) => { prevRankRef.current = qfRank(race, play); finishStop(earned); }} onBack={back} />;
+      const stop = race.stops.find(s => s.id === cur.stopId);
+      screen = <PlayActivity stop={stop} onStopDone={(earned) => { prevRankRef.current = qfRank(race, play); finishStop(earned, stop.id, stop.name); }} onBack={back} />;
       break;
     }
     case 'result': screen = <PlayResult {...common} play={play} prevRank={prevRankRef.current} />; break;

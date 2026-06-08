@@ -1,13 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../data.jsx';
 
 export function Btn({ children, onClick, variant = 'primary', size = 'lg', icon, iconRight, disabled, style = {}, full }) {
   const base = {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 9,
     fontFamily: 'var(--qf-display)', fontWeight: 600, border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
-    borderRadius: 16, transition: 'transform .12s ease, box-shadow .12s ease, opacity .12s',
+    borderRadius: 16, transition: 'opacity .12s',
     width: full ? '100%' : undefined, WebkitTapHighlightColor: 'transparent', whiteSpace: 'nowrap',
-    opacity: disabled ? 0.45 : 1, letterSpacing: 0.2,
+    opacity: disabled ? 0.45 : 1, letterSpacing: 0.2, touchAction: 'manipulation',
   };
   const sizes = {
     lg: { padding: '15px 22px', fontSize: 17 },
@@ -22,11 +22,12 @@ export function Btn({ children, onClick, variant = 'primary', size = 'lg', icon,
     outline: { background: 'transparent', color: 'var(--qf-ink)', boxShadow: 'inset 0 0 0 1.5px var(--qf-line)' },
     ghost: { background: 'transparent', color: 'var(--qf-muted)' },
   };
+  const fire = disabled ? undefined : onClick;
   return (
-    <button onClick={disabled ? undefined : onClick} disabled={disabled}
-      onMouseDown={e => { if (!disabled) e.currentTarget.style.transform = 'scale(0.97)'; }}
-      onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; }}
-      onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+    <button
+      onClick={fire}
+      onTouchEnd={fire ? (e) => { e.preventDefault(); fire(); } : undefined}
+      disabled={disabled}
       style={{ ...base, ...sizes[size], ...variants[variant], ...style }}>
       {icon && <Icon name={icon} size={size === 'sm' ? 16 : 19} stroke={2.4} />}
       {children}
@@ -107,26 +108,50 @@ export function Progress({ value, max = 100, tint = 'var(--qf-primary)', height 
   );
 }
 
-export function Sheet({ open, onClose, children, pad = true }) {
+export function Sheet({ open, onClose, children, pad = true, footer }) {
   const [show, setShow] = useState(open);
+  const touchStartY = useRef(0);
   useEffect(() => { if (open) setShow(true); }, [open]);
   if (!show) return null;
+
+  function handleTouchStart(e) { touchStartY.current = e.touches[0].clientY; }
+  function handleTouchEnd(e) {
+    e.preventDefault();
+    const dy = e.changedTouches[0].clientY - touchStartY.current;
+    if (dy > 40 || Math.abs(dy) < 12) onClose(); // swipe down or tap
+  }
+
   return (
-    <div onClick={onClose} style={{
-      position: 'absolute', inset: 0, zIndex: 80, display: 'flex', alignItems: 'flex-end',
-      background: 'rgba(20,12,30,0.42)', backdropFilter: 'blur(2px)',
+    <div style={{
+      position: 'absolute', inset: 0, zIndex: 80,
+      display: 'flex', flexDirection: 'column',
       animation: open ? 'qfFade .2s ease' : 'qfFade .2s ease reverse',
     }}
-      onAnimationEnd={() => { if (!open) setShow(false); }}>
-      <div onClick={e => e.stopPropagation()} style={{
-        width: '100%', background: 'var(--qf-bg)', borderRadius: '26px 26px 0 0',
-        maxHeight: '82%', display: 'flex', flexDirection: 'column', overflow: 'hidden',
-        boxShadow: '0 -10px 40px rgba(0,0,0,0.25)', animation: 'qfSlideUp .28s cubic-bezier(.2,.9,.3,1)',
+      onAnimationEnd={(e) => { if (e.target === e.currentTarget && !open) setShow(false); }}>
+      {/* backdrop fills only the space ABOVE the sheet — zero overlap with sheet panel */}
+      <div onClick={onClose} style={{
+        flex: 1,
+        background: 'rgba(20,12,30,0.42)',
+        cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+      }} />
+      {/* sheet panel sits below the backdrop with no z-index conflict */}
+      <div style={{
+        width: '100%', background: 'var(--qf-bg)',
+        borderRadius: '26px 26px 0 0', maxHeight: '82%',
+        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        boxShadow: '0 -10px 40px rgba(0,0,0,0.25)',
+        animation: 'qfSlideUp .28s cubic-bezier(.2,.9,.3,1)',
       }}>
-        <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 10 }}>
+        <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onClick={onClose}
+          style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 6px', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}>
           <div style={{ width: 38, height: 5, borderRadius: 99, background: 'var(--qf-line)' }} />
         </div>
-        <div style={{ overflow: 'auto', padding: pad ? '8px 18px 26px' : 0 }}>{children}</div>
+        <div style={{ overflow: 'auto', padding: pad ? '8px 18px 16px' : 0 }}>{children}</div>
+        {footer && (
+          <div style={{ padding: '10px 18px 28px', flexShrink: 0, borderTop: '1px solid var(--qf-line)', background: 'var(--qf-bg)' }}>
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );

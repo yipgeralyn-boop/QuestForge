@@ -8,15 +8,17 @@ const PACE = { t2: 1.0, t3: 0.93, t4: 0.74, t5: 0.86 };
 const JITTER = { t2: 20, t3: -30, t4: 15, t5: -10 };
 
 const stopPoints = (st) => st.activities.reduce((a, x) => a + (x.points || 0), 0);
+const totalPoints = (race) => race.stops.reduce((a, st) => a + stopPoints(st), 0);
 const pointsThrough = (race, idx) => race.stops.slice(0, idx).reduce((a, st) => a + stopPoints(st), 0);
 
 function buildLeaderboard(race, play) {
   const total = race.stops.length;
+  const done = play.completedIds ? play.completedIds.length : (play.idx || 0);
   const rows = TEAMS.map(tm => {
-    if (tm.you) return { team: tm, score: play.score, stopsDone: Math.min(play.idx, total), you: true };
-    const perfect = pointsThrough(race, play.idx);
-    const score = Math.max(0, Math.round(perfect * (PACE[tm.id] || 0.9)) + (JITTER[tm.id] || 0));
-    const stopsDone = Math.max(0, Math.min(total, Math.round(play.idx * (PACE[tm.id] || 0.9))));
+    if (tm.you) return { team: tm, score: play.score, stopsDone: done, you: true };
+    const pace = PACE[tm.id] || 0.9;
+    const score = Math.max(0, Math.round(play.score * pace) + (JITTER[tm.id] || 0));
+    const stopsDone = Math.max(0, Math.min(total, Math.round(done * pace)));
     return { team: tm, score, stopsDone, you: false };
   });
   rows.sort((a, b) => b.score - a.score || b.stopsDone - a.stopsDone);
@@ -27,6 +29,62 @@ function buildLeaderboard(race, play) {
 const myRank = (rows) => (rows.find(r => r.you) || {}).rank || 1;
 
 export function qfRank(race, play) { return myRank(buildLeaderboard(race, play)); }
+
+export function PlayJoin({ go, back, t }) {
+  const [code, setCode] = useState('');
+  const [error, setError] = useState(false);
+
+  function tryJoin() {
+    if (code.trim().length >= 3) { go({ name: 'lobby' }); }
+    else { setError(true); setTimeout(() => setError(false), 800); }
+  }
+
+  return (
+    <>
+      <TopBar sub={qfWord(t, 'Quest') + ' player'} title="Join a quest" onBack={back} />
+      <ScreenScroll>
+        <div style={{ padding: '8px 18px 24px' }}>
+          {/* QR scanner mock */}
+          <div style={{ borderRadius: 22, overflow: 'hidden', background: '#111', height: 240, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }} />
+            {/* corner brackets */}
+            {[['0%','0%','right','bottom'],['100%','0%','left','bottom'],['0%','100%','right','top'],['100%','100%','left','top']].map(([l,t2,br,bb], i) => (
+              <div key={i} style={{ position: 'absolute', left: l, top: t2, width: 36, height: 36, transform: `translate(${i%2?'-':''}16px, ${i>1?'-':''}16px)`, borderColor: 'var(--qf-primary)', borderStyle: 'solid', borderWidth: 0, [`border${br[0].toUpperCase()+br.slice(1)}Width`]: 3, [`border${bb[0].toUpperCase()+bb.slice(1)}Width`]: 3, borderRadius: 6 }} />
+            ))}
+            <div style={{ position: 'relative', textAlign: 'center' }}>
+              <div style={{ width: 72, height: 72, borderRadius: 18, background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                <Icon name="qr" size={40} stroke={1.6} style={{ color: 'rgba(255,255,255,0.7)' }} />
+              </div>
+              <div style={{ fontFamily: 'var(--qf-body)', fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>Point camera at the QR code</div>
+            </div>
+            {/* scan line animation */}
+            <div style={{ position: 'absolute', left: '10%', right: '10%', height: 2, background: 'var(--qf-primary)', opacity: 0.7, animation: 'qfBob 2s ease-in-out infinite', top: '50%' }} />
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+            <div style={{ flex: 1, height: 1, background: 'var(--qf-line)' }} />
+            <span style={{ fontFamily: 'var(--qf-body)', fontSize: 13, color: 'var(--qf-muted)', fontWeight: 600 }}>or enter code</span>
+            <div style={{ flex: 1, height: 1, background: 'var(--qf-line)' }} />
+          </div>
+
+          <div style={{ animation: error ? 'qfShake .4s ease' : 'none' }}>
+            <input
+              style={{ width: '100%', boxSizing: 'border-box', padding: '16px 18px', borderRadius: 16, border: `2px solid ${error ? '#E0564B' : 'var(--qf-line)'}`, background: 'var(--qf-surface)', color: 'var(--qf-ink)', fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 22, letterSpacing: 2, textAlign: 'center', outline: 'none', textTransform: 'uppercase', transition: 'border .2s' }}
+              placeholder="QF-XXX-00"
+              value={code}
+              onChange={e => { setCode(e.target.value); setError(false); }}
+              onKeyDown={e => e.key === 'Enter' && tryJoin()}
+            />
+            {error && <div style={{ textAlign: 'center', fontFamily: 'var(--qf-body)', fontSize: 13, color: '#E0564B', marginTop: 8 }}>Code not found — check with your organiser</div>}
+          </div>
+        </div>
+      </ScreenScroll>
+      <FooterBar>
+        <Btn full variant="primary" icon="play" onClick={tryJoin}>Join quest</Btn>
+      </FooterBar>
+    </>
+  );
+}
 
 export function PlayLobby({ race, go, back, t, mapStyle, startPlay }) {
   const [count, setCount] = useState(null);
@@ -117,22 +175,20 @@ export function PlayLobby({ race, go, back, t, mapStyle, startPlay }) {
   );
 }
 
-export function PlayMap({ race, play, go, t, mapStyle }) {
+export function PlayMap({ race, play, go, back, t, mapStyle }) {
   const total = race.stops.length;
-  const done = play.idx >= total;
-  const stop = race.stops[Math.min(play.idx, total - 1)];
+  const allDone = play.completedIds.length >= total;
   const rows = buildLeaderboard(race, play);
   const rank = myRank(rows);
-  const dist = [0, 120, 340, 260, 180, 410][play.idx % 6] || 150;
 
-  if (done) {
+  if (allDone) {
     return (
       <>
-        <TopBar sub={race.name} title="Finish line!" />
+        <TopBar sub={race.name} title="Quest complete!" />
         <ScreenScroll>
           <div style={{ padding: '0 18px' }}>
             <div style={{ borderRadius: 22, overflow: 'hidden', border: '1px solid var(--qf-line)' }}>
-              <AdventureMap stops={race.stops} mapStyle={mapStyle} mode="play" currentIndex={total} height={250} />
+              <AdventureMap stops={race.stops} mapStyle={mapStyle} mode="play" completedIds={play.completedIds} height={250} />
             </div>
             <div style={{ textAlign: 'center', marginTop: 18 }}>
               <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 24, color: 'var(--qf-ink)' }}>Every stop conquered!</div>
@@ -145,74 +201,92 @@ export function PlayMap({ race, play, go, t, mapStyle }) {
     );
   }
 
-  const next = play.idx + 1;
   return (
     <>
       <div style={{ paddingTop: 52, padding: '52px 18px 10px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <button onClick={back} style={{ width: 38, height: 38, borderRadius: 12, border: 'none', cursor: 'pointer', flexShrink: 0, background: 'var(--qf-surface)', color: 'var(--qf-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px var(--qf-shadow)', WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}>
+          <Icon name="chevronL" size={20} stroke={2.6} />
+        </button>
         <div style={{ flex: 1 }}>
           <div style={{ fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 11.5, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--qf-primary)' }}>{race.name}</div>
-          <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 21, color: 'var(--qf-ink)' }}>Stop {next} of {total}</div>
+          <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 21, color: 'var(--qf-ink)' }}>{play.completedIds.length} of {total} done</div>
         </div>
-        <button onClick={() => go({ name: 'leaderboard' })} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 13px', borderRadius: 14, border: 'none', background: 'var(--qf-surface)', boxShadow: '0 3px 10px -4px var(--qf-shadow)', cursor: 'pointer' }}>
+        <button onClick={() => go({ name: 'leaderboard' })} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 13px', borderRadius: 14, border: 'none', background: 'var(--qf-surface)', boxShadow: '0 3px 10px -4px var(--qf-shadow)', cursor: 'pointer', WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}>
           <Icon name="trophy" size={17} stroke={2.3} style={{ color: 'var(--qf-accent)' }} />
           <span style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 15, color: 'var(--qf-ink)' }}>#{rank}</span>
         </button>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
           <span style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 18, color: 'var(--qf-primary)' }}>{play.score}</span>
-          <span style={{ fontFamily: 'var(--qf-body)', fontSize: 10.5, color: 'var(--qf-muted)', textTransform: 'uppercase', letterSpacing: 0.4 }}>points</span>
+          <span style={{ fontFamily: 'var(--qf-body)', fontSize: 10.5, color: 'var(--qf-muted)', textTransform: 'uppercase', letterSpacing: 0.4 }}>pts</span>
         </div>
       </div>
       <div style={{ padding: '0 18px 8px' }}>
-        <Progress showDots dots={total} doneDots={play.idx} />
+        <Progress showDots dots={total} doneDots={play.completedIds.length} />
       </div>
       <ScreenScroll>
-        <div style={{ padding: '6px 18px 8px' }}>
+        <div style={{ padding: '6px 18px 16px' }}>
           <div style={{ borderRadius: 22, overflow: 'hidden', border: '1px solid var(--qf-line)', boxShadow: '0 10px 26px -14px var(--qf-shadow)' }}>
-            <AdventureMap stops={race.stops} mapStyle={mapStyle} mode="play" currentIndex={play.idx} height={252}
-              onPinTap={(i) => { if (i === play.idx) go({ name: 'activity' }); }} />
+            <AdventureMap stops={race.stops} mapStyle={mapStyle} mode="play" completedIds={play.completedIds} height={220}
+              onPinTap={(i) => {
+                const s = race.stops[i];
+                if (!play.completedIds.includes(s.id)) go({ name: 'activity', stopId: s.id });
+              }} />
           </div>
 
-          <div style={{ marginTop: 16, padding: 18, borderRadius: 20, background: 'var(--qf-surface)', border: '1px solid var(--qf-line)', boxShadow: '0 8px 22px -16px var(--qf-shadow)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 99, background: 'color-mix(in srgb, var(--qf-primary) 14%, transparent)', color: 'var(--qf-primary)', fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 11.5 }}>
-                <Icon name="target" size={13} stroke={2.5} /> NEXT STOP
-              </span>
-              <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 12.5, color: 'var(--qf-secondary)' }}>
-                <Icon name="route" size={14} stroke={2.4} /> {dist}m away
-              </span>
-            </div>
-            <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 22, color: 'var(--qf-ink)' }}>{stop.name}</div>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7, marginTop: 6 }}>
-              <Icon name="compass" size={16} stroke={2.2} style={{ color: 'var(--qf-muted)', flexShrink: 0, marginTop: 2 }} />
-              <div style={{ fontFamily: 'var(--qf-body)', fontSize: 13.5, color: 'var(--qf-muted)', lineHeight: 1.4 }}>{stop.hint}</div>
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
-              {stop.activities.map((a, k) => {
-                const m = ACTIVITY_META[a.type];
-                return <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 9, background: 'var(--qf-surface-2)', color: m.tint, fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 11.5 }}><Icon name={m.icon} size={13} stroke={2.4} /> {m.label} · {a.points}</span>;
-              })}
-            </div>
+          <div style={{ marginTop: 16, fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 16, color: 'var(--qf-ink)', marginBottom: 10 }}>Choose any stop</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {race.stops.map((s, i) => {
+              const isDone = play.completedIds.includes(s.id);
+              return (
+                <button key={s.id}
+                  onClick={() => { if (!isDone) go({ name: 'activity', stopId: s.id }); }}
+                  style={{
+                    textAlign: 'left', padding: '14px 16px', borderRadius: 18, width: '100%',
+                    background: isDone ? 'var(--qf-surface-2)' : 'var(--qf-surface)',
+                    border: '1px solid var(--qf-line)',
+                    cursor: isDone ? 'default' : 'pointer',
+                    opacity: isDone ? 0.6 : 1,
+                    boxShadow: isDone ? 'none' : '0 5px 16px -12px var(--qf-shadow)',
+                    WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation',
+                  }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 38, height: 38, borderRadius: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 17, color: '#fff', background: isDone ? 'var(--qf-secondary)' : i === 0 ? 'var(--qf-secondary)' : i === race.stops.length - 1 ? 'var(--qf-accent)' : 'var(--qf-primary)' }}>
+                      {isDone ? <Icon name="check" size={20} stroke={3} /> : i === 0 ? <Icon name="flag" size={16} stroke={2.4} /> : i === race.stops.length - 1 ? <Icon name="trophy" size={16} stroke={2.2} /> : i}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 16, color: isDone ? 'var(--qf-muted)' : 'var(--qf-ink)' }}>{s.name}</div>
+                      <div style={{ fontFamily: 'var(--qf-body)', fontSize: 12.5, color: 'var(--qf-muted)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.hint}</div>
+                    </div>
+                    {isDone
+                      ? <Icon name="check" size={18} stroke={2.4} style={{ color: 'var(--qf-secondary)', flexShrink: 0 }} />
+                      : <Icon name="chevron" size={18} stroke={2.4} style={{ color: 'var(--qf-muted)', flexShrink: 0 }} />}
+                  </div>
+                  {!isDone && s.activities.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                      {s.activities.map((a, k) => {
+                        const m = ACTIVITY_META[a.type];
+                        return <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 8, background: 'var(--qf-surface-2)', color: m.tint, fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 11.5 }}><Icon name={m.icon} size={12} stroke={2.4} /> {m.label} · {a.points}</span>;
+                      })}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       </ScreenScroll>
-      <FooterBar blur>
-        <Btn full variant="primary" size="lg" icon={stop.activities[0].type === 'gps' ? 'pin' : 'play'} onClick={() => go({ name: 'activity' })}>
-          {stop.activities[0].type === 'gps' ? "I'm here — check in" : 'Start this stop'}
-        </Btn>
-      </FooterBar>
     </>
   );
 }
 
 export function PlayResult({ race, play, prevRank, go }) {
   const total = race.stops.length;
-  const last = play.idx >= total;
+  const allDone = play.completedIds.length >= total;
   const rows = buildLeaderboard(race, play);
   const rank = myRank(rows);
   const climbed = prevRank && rank < prevRank;
   const [burst, setBurst] = useState(false);
   useEffect(() => { const tm = setTimeout(() => setBurst(true), 200); return () => clearTimeout(tm); }, []);
-  const stop = race.stops[play.idx - 1];
 
   return (
     <>
@@ -223,7 +297,7 @@ export function PlayResult({ race, play, prevRank, go }) {
             <Icon name="check" size={50} stroke={3} />
           </div>
           <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 27, color: 'var(--qf-ink)', marginTop: 18 }}>Stop cleared!</div>
-          <div style={{ fontFamily: 'var(--qf-body)', fontSize: 14.5, color: 'var(--qf-muted)', marginTop: 4 }}>{stop ? stop.name : ''} is in the bag.</div>
+          <div style={{ fontFamily: 'var(--qf-body)', fontSize: 14.5, color: 'var(--qf-muted)', marginTop: 4 }}>{play.lastCompletedName} is in the bag.</div>
 
           <div style={{ marginTop: 22, width: '100%', padding: 20, borderRadius: 22, background: 'var(--qf-surface)', border: '1px solid var(--qf-line)', boxShadow: '0 10px 26px -16px var(--qf-shadow)' }}>
             <div style={{ fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--qf-muted)' }}>Points this stop</div>
@@ -231,7 +305,7 @@ export function PlayResult({ race, play, prevRank, go }) {
             <div style={{ display: 'flex', borderTop: '1px solid var(--qf-line)', marginTop: 14, paddingTop: 14 }}>
               <Stat icon="star" value={play.score} label="Total" tint="var(--qf-ink)" />
               <Stat icon="trophy" value={'#' + rank} label="Rank" tint="var(--qf-accent)" />
-              <Stat icon="pin" value={play.idx + '/' + total} label="Stops" tint="var(--qf-secondary)" />
+              <Stat icon="pin" value={play.completedIds.length + '/' + total} label="Stops" tint="var(--qf-secondary)" />
             </div>
           </div>
 
@@ -243,9 +317,9 @@ export function PlayResult({ race, play, prevRank, go }) {
         </div>
       </ScreenScroll>
       <FooterBar>
-        {last
+        {allDone
           ? <Btn full variant="accent" icon="trophy" onClick={() => go({ name: 'recap' })}>Finish &amp; see results</Btn>
-          : <Btn full variant="primary" iconRight="arrow" onClick={() => go({ name: 'play' })}>Onward to stop {play.idx + 1}</Btn>}
+          : <Btn full variant="primary" iconRight="arrow" onClick={() => go({ name: 'play' })}>Back to the map</Btn>}
       </FooterBar>
     </>
   );

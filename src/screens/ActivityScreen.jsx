@@ -4,6 +4,16 @@ import { Btn, TopBar, ScreenScroll, FooterBar } from '../components/UI.jsx';
 
 const norm = (s) => (s || '').trim().toLowerCase().replace(/^(a|an|the)\s+/, '').replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ');
 
+const ARRIVE_RADIUS = 30;
+
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 function ActHeader({ stop, idx, total, onBack, m }) {
   return (
     <TopBar sub={stop.name} title={m.label} onBack={onBack}
@@ -11,25 +21,70 @@ function ActHeader({ stop, idx, total, onBack, m }) {
   );
 }
 
-function GpsActivity({ onDone, points }) {
-  const [phase, setPhase] = useState('locating');
-  useEffect(() => { const tm = setTimeout(() => setPhase('found'), 1900); return () => clearTimeout(tm); }, []);
+function GpsActivity({ stop, onDone, points }) {
+  const [status, setStatus] = useState('locating'); // locating | live | arrived | denied | nosignal
+  const [dist, setDist] = useState(null);
+  const watchId = useRef(null);
+
+  useEffect(() => {
+    const hasCoords = stop && stop.lat != null && stop.lng != null;
+
+    if (!hasCoords || !navigator.geolocation) {
+      const tm = setTimeout(() => setStatus('arrived'), 2000);
+      return () => clearTimeout(tm);
+    }
+
+    watchId.current = navigator.geolocation.watchPosition(
+      pos => {
+        const m = Math.round(haversine(pos.coords.latitude, pos.coords.longitude, stop.lat, stop.lng));
+        setDist(m);
+        setStatus(m <= ARRIVE_RADIUS ? 'arrived' : 'live');
+      },
+      err => {
+        setStatus(err.code === 1 ? 'denied' : 'nosignal');
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
+    );
+
+    return () => { if (watchId.current != null) navigator.geolocation.clearWatch(watchId.current); };
+  }, []);
+
+  const arrived = status === 'arrived';
+
+  const title = arrived ? 'You made it!'
+    : status === 'denied' ? 'Location blocked'
+    : status === 'nosignal' ? 'Weak GPS signal'
+    : 'Getting your location…';
+
+  const subtitle = arrived ? "You're within range. Check in to claim your points."
+    : status === 'denied' ? 'Enable location in your browser settings, then reload.'
+    : status === 'nosignal' ? 'Move to an open area for a better signal.'
+    : (stop && stop.lat) ? `Keep moving — unlocks within ${ARRIVE_RADIUS}m.`
+    : 'Hold tight while we lock onto your GPS signal…';
+
   return (
     <ScreenScroll>
       <div style={{ padding: '14px 22px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
         <div style={{ position: 'relative', width: 200, height: 200, margin: '18px 0 6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {[0, 1, 2].map(i => (
-            <span key={i} style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '2px solid var(--qf-secondary)', opacity: 0, animation: `qfRadar 2.4s ${i * 0.8}s ease-out infinite` }} />
+            <span key={i} style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '2px solid var(--qf-secondary)', opacity: 0, animation: arrived ? 'none' : `qfRadar 2.4s ${i * 0.8}s ease-out infinite` }} />
           ))}
-          <div style={{ width: 92, height: 92, borderRadius: '50%', background: phase === 'found' ? 'var(--qf-secondary)' : 'var(--qf-surface)', color: phase === 'found' ? '#fff' : 'var(--qf-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 10px 26px -10px var(--qf-shadow)', border: '1px solid var(--qf-line)', transition: 'all .4s' }}>
-            <Icon name={phase === 'found' ? 'check' : 'pin'} size={44} stroke={2.4} />
+          <div style={{ width: 92, height: 92, borderRadius: '50%', background: arrived ? 'var(--qf-secondary)' : 'var(--qf-surface)', color: arrived ? '#fff' : 'var(--qf-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 10px 26px -10px var(--qf-shadow)', border: '1px solid var(--qf-line)', transition: 'all .4s' }}>
+            <Icon name={arrived ? 'check' : status === 'denied' ? 'close' : 'pin'} size={44} stroke={2.4} />
           </div>
         </div>
-        <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 23, color: 'var(--qf-ink)', marginTop: 14 }}>{phase === 'found' ? 'You made it!' : 'Locating you…'}</div>
-        <div style={{ fontFamily: 'var(--qf-body)', fontSize: 14.5, color: 'var(--qf-muted)', maxWidth: 260, marginTop: 6 }}>{phase === 'found' ? "You're within range of the stop. Check in to claim your points." : 'Hold tight while we lock onto your GPS signal…'}</div>
+
+        {status === 'live' && dist !== null && (
+          <div style={{ marginBottom: 10, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 18px', borderRadius: 99, background: 'color-mix(in srgb, var(--qf-secondary) 12%, var(--qf-surface))', border: '1px solid color-mix(in srgb, var(--qf-secondary) 30%, var(--qf-line))', color: 'var(--qf-secondary)', fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 22 }}>
+            <Icon name="route" size={20} stroke={2.4} /> {dist}m away
+          </div>
+        )}
+
+        <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 23, color: 'var(--qf-ink)', marginTop: 8 }}>{title}</div>
+        <div style={{ fontFamily: 'var(--qf-body)', fontSize: 14.5, color: 'var(--qf-muted)', maxWidth: 260, marginTop: 6 }}>{subtitle}</div>
       </div>
       <FooterBar>
-        <Btn full style={{ background: 'var(--qf-secondary)', color: '#fff', opacity: phase === 'found' ? 1 : 0.5 }} disabled={phase !== 'found'} icon="check" onClick={() => onDone(points, true)}>
+        <Btn full style={{ background: 'var(--qf-secondary)', color: '#fff', opacity: arrived ? 1 : 0.5 }} disabled={!arrived} icon="check" onClick={() => onDone(points, true)}>
           Check in · +{points}
         </Btn>
       </FooterBar>
@@ -200,7 +255,7 @@ export default function PlayActivity({ stop, onStopDone, onBack }) {
   return (
     <>
       <ActHeader stop={stop} idx={i} total={acts.length} onBack={onBack} m={m} />
-      {a.type === 'gps' && <GpsActivity key={i} points={a.points} onDone={next} />}
+      {a.type === 'gps' && <GpsActivity key={i} stop={stop} points={a.points} onDone={next} />}
       {a.type === 'photo' && <PhotoActivity key={i} stop={stop} prompt={a.prompt} points={a.points} onDone={next} />}
       {a.type === 'quiz' && <TextActivity key={i} kind="quiz" question={a.question} answer={a.answer} points={a.points} onDone={next} />}
       {a.type === 'riddle' && <TextActivity key={i} kind="riddle" question={a.riddle} answer={a.answer} points={a.points} onDone={next} />}
