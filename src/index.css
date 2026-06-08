@@ -1,0 +1,29 @@
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; }
+body {
+  background: #211a2e;
+  font-family: "DM Sans", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+#root {
+  min-height: 100vh;
+}
+::-webkit-scrollbar { width: 0; height: 0; }
+.qf-root { scrollbar-width: none; }
+button { font-family: inherit; }
+
+@keyframes qfScreenIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes qfFadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes qfFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes qfSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes qfPop { 0% { transform: scale(0.4); opacity: 0; } 60% { transform: scale(1.12); } 100% { transform: scale(1); opacity: 1; } }
+@keyframes qfPulse { 0% { transform: translate(-50%,50%) scale(0.6); opacity: 0.5; } 100% { transform: translate(-50%,50%) scale(1.5); opacity: 0; } }
+@keyframes qfRadar { 0% { transform: scale(0.3); opacity: 0.7; } 100% { transform: scale(1); opacity: 0; } }
+@keyframes qfFloat { 0%,100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-12px) rotate(4deg); } }
+@keyframes qfBob { 0%,100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-4px); } }
+@keyframes qfShake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-7px); } 40% { transform: translateX(7px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(5px); } }
+@keyframes qfFlash { 0% { opacity: 0; } 30% { opacity: 0.95; } 100% { opacity: 0; } }
+@keyframes qfBlink { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+@keyframes qfConfetti { 0% { transform: translateY(0) rotate(0); opacity: 1; } 100% { transform: translateY(720px) rotate(620deg); opacity: 0.9; } }
+@media (prefers-reduced-motion: reduce) { * { animation-duration: 0.01ms !important; } }
