@@ -25,8 +25,7 @@ export function Btn({ children, onClick, variant = 'primary', size = 'lg', icon,
   const fire = disabled ? undefined : onClick;
   return (
     <button
-      onClick={fire}
-      onTouchEnd={fire ? (e) => { e.preventDefault(); fire(); } : undefined}
+      onPointerUp={fire ? (e) => { e.currentTarget.releasePointerCapture(e.pointerId); fire(); } : undefined}
       disabled={disabled}
       style={{ ...base, ...sizes[size], ...variants[variant], ...style }}>
       {icon && <Icon name={icon} size={size === 'sm' ? 16 : 19} stroke={2.4} />}
@@ -116,9 +115,8 @@ export function Sheet({ open, onClose, children, pad = true, footer }) {
 
   function handleTouchStart(e) { touchStartY.current = e.touches[0].clientY; }
   function handleTouchEnd(e) {
-    e.preventDefault();
     const dy = e.changedTouches[0].clientY - touchStartY.current;
-    if (dy > 40 || Math.abs(dy) < 12) onClose(); // swipe down or tap
+    if (dy > 40 || Math.abs(dy) < 12) onClose();
   }
 
   return (

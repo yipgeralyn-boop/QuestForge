@@ -1,41 +1,25 @@
-import { useState, useEffect } from 'react';
-import { Icon, ACTIVITY_META, qfWord, TEAMS } from '../data.jsx';
+import { useState, useEffect, useRef } from 'react';
+import { Icon, ACTIVITY_META, qfWord } from '../data.jsx';
 import { Btn, TopBar, Chip, Stat, Progress, Avatar, RankBadge, Burst, ScreenScroll, FooterBar } from '../components/UI.jsx';
 import AdventureMap from '../components/AdventureMap.jsx';
-
-const ROSTER = ['Sam Ortiz', 'Ava Lin', 'Marco Diaz', 'Priya Raman'];
-const PACE = { t2: 1.0, t3: 0.93, t4: 0.74, t5: 0.86 };
-const JITTER = { t2: 20, t3: -30, t4: 15, t5: -10 };
 
 const stopPoints = (st) => st.activities.reduce((a, x) => a + (x.points || 0), 0);
 const totalPoints = (race) => race.stops.reduce((a, st) => a + stopPoints(st), 0);
 const pointsThrough = (race, idx) => race.stops.slice(0, idx).reduce((a, st) => a + stopPoints(st), 0);
 
-function buildLeaderboard(race, play) {
-  const total = race.stops.length;
-  const done = play.completedIds ? play.completedIds.length : (play.idx || 0);
-  const rows = TEAMS.map(tm => {
-    if (tm.you) return { team: tm, score: play.score, stopsDone: done, you: true };
-    const pace = PACE[tm.id] || 0.9;
-    const score = Math.max(0, Math.round(play.score * pace) + (JITTER[tm.id] || 0));
-    const stopsDone = Math.max(0, Math.min(total, Math.round(done * pace)));
-    return { team: tm, score, stopsDone, you: false };
-  });
-  rows.sort((a, b) => b.score - a.score || b.stopsDone - a.stopsDone);
-  rows.forEach((r, i) => r.rank = i + 1);
-  return rows;
+export function qfRank() { return 1; }
+
+function ordinal(n) {
+  const v = n % 100;
+  return n + (['th','st','nd','rd'][(v - 20) % 10] || ['th','st','nd','rd'][v] || 'th');
 }
-
-const myRank = (rows) => (rows.find(r => r.you) || {}).rank || 1;
-
-export function qfRank(race, play) { return myRank(buildLeaderboard(race, play)); }
 
 export function PlayJoin({ go, back, t }) {
   const [code, setCode] = useState('');
   const [error, setError] = useState(false);
 
   function tryJoin() {
-    if (code.trim().length >= 3) { go({ name: 'lobby' }); }
+    if (code.trim().length >= 3) go({ name: 'teamSetup' });
     else { setError(true); setTimeout(() => setError(false), 800); }
   }
 
@@ -43,35 +27,21 @@ export function PlayJoin({ go, back, t }) {
     <>
       <TopBar sub={qfWord(t, 'Quest') + ' player'} title="Join a quest" onBack={back} />
       <ScreenScroll>
-        <div style={{ padding: '8px 18px 24px' }}>
-          {/* QR scanner mock */}
-          <div style={{ borderRadius: 22, overflow: 'hidden', background: '#111', height: 240, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
-            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }} />
-            {/* corner brackets */}
-            {[['0%','0%','right','bottom'],['100%','0%','left','bottom'],['0%','100%','right','top'],['100%','100%','left','top']].map(([l,t2,br,bb], i) => (
-              <div key={i} style={{ position: 'absolute', left: l, top: t2, width: 36, height: 36, transform: `translate(${i%2?'-':''}16px, ${i>1?'-':''}16px)`, borderColor: 'var(--qf-primary)', borderStyle: 'solid', borderWidth: 0, [`border${br[0].toUpperCase()+br.slice(1)}Width`]: 3, [`border${bb[0].toUpperCase()+bb.slice(1)}Width`]: 3, borderRadius: 6 }} />
-            ))}
-            <div style={{ position: 'relative', textAlign: 'center' }}>
-              <div style={{ width: 72, height: 72, borderRadius: 18, background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-                <Icon name="qr" size={40} stroke={1.6} style={{ color: 'rgba(255,255,255,0.7)' }} />
-              </div>
-              <div style={{ fontFamily: 'var(--qf-body)', fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>Point camera at the QR code</div>
+        <div style={{ padding: '32px 18px 24px' }}>
+          <div style={{ textAlign: 'center', marginBottom: 32 }}>
+            <div style={{ width: 80, height: 80, borderRadius: 24, background: 'var(--qf-surface)', border: '1px solid var(--qf-line)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <Icon name="pin" size={38} stroke={1.8} style={{ color: 'var(--qf-primary)' }} />
             </div>
-            {/* scan line animation */}
-            <div style={{ position: 'absolute', left: '10%', right: '10%', height: 2, background: 'var(--qf-primary)', opacity: 0.7, animation: 'qfBob 2s ease-in-out infinite', top: '50%' }} />
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-            <div style={{ flex: 1, height: 1, background: 'var(--qf-line)' }} />
-            <span style={{ fontFamily: 'var(--qf-body)', fontSize: 13, color: 'var(--qf-muted)', fontWeight: 600 }}>or enter code</span>
-            <div style={{ flex: 1, height: 1, background: 'var(--qf-line)' }} />
+            <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 20, color: 'var(--qf-ink)' }}>Enter your quest code</div>
+            <div style={{ fontFamily: 'var(--qf-body)', fontSize: 14, color: 'var(--qf-muted)', marginTop: 6 }}>Get the code from your organiser</div>
           </div>
 
           <div style={{ animation: error ? 'qfShake .4s ease' : 'none' }}>
             <input
-              style={{ width: '100%', boxSizing: 'border-box', padding: '16px 18px', borderRadius: 16, border: `2px solid ${error ? '#E0564B' : 'var(--qf-line)'}`, background: 'var(--qf-surface)', color: 'var(--qf-ink)', fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 22, letterSpacing: 2, textAlign: 'center', outline: 'none', textTransform: 'uppercase', transition: 'border .2s' }}
+              style={{ width: '100%', boxSizing: 'border-box', padding: '18px', borderRadius: 16, border: `2px solid ${error ? '#E0564B' : 'var(--qf-line)'}`, background: 'var(--qf-surface)', color: 'var(--qf-ink)', fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 26, letterSpacing: 3, textAlign: 'center', outline: 'none', textTransform: 'uppercase', transition: 'border .2s' }}
               placeholder="QF-XXX-00"
               value={code}
+              autoFocus
               onChange={e => { setCode(e.target.value); setError(false); }}
               onKeyDown={e => e.key === 'Enter' && tryJoin()}
             />
@@ -86,8 +56,75 @@ export function PlayJoin({ go, back, t }) {
   );
 }
 
-export function PlayLobby({ race, go, back, t, mapStyle, startPlay }) {
+export function PlayTeamSetup({ go, back, t, setTeam }) {
+  const [name, setName] = useState('');
+  const [members, setMembers] = useState(['', '', '']);
+  const [nameError, setNameError] = useState(false);
+
+  function proceed() {
+    if (!name.trim()) { setNameError(true); setTimeout(() => setNameError(false), 800); return; }
+    setTeam(name.trim(), members.filter(m => m.trim()));
+    go({ name: 'lobby' });
+  }
+
+  const inputBase = { width: '100%', boxSizing: 'border-box', padding: '13px 14px', borderRadius: 12, border: '1.5px solid var(--qf-line)', background: 'var(--qf-surface)', color: 'var(--qf-ink)', fontFamily: 'var(--qf-body)', fontSize: 15, outline: 'none' };
+
+  return (
+    <>
+      <TopBar sub={qfWord(t, 'Quest') + ' player'} title="Your team" onBack={back} />
+      <ScreenScroll>
+        <div style={{ padding: '20px 18px 8px' }}>
+          <div style={{ fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 13, color: nameError ? '#E0564B' : 'var(--qf-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5, transition: 'color .2s' }}>Team name</div>
+          <div style={{ animation: nameError ? 'qfShake .4s ease' : 'none' }}>
+            <input
+              autoFocus
+              style={{ ...inputBase, fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 18, marginBottom: 4, borderColor: nameError ? '#E0564B' : 'var(--qf-line)', transition: 'border-color .2s' }}
+              placeholder="e.g. Compass Crew"
+              value={name}
+              onChange={e => { setName(e.target.value); setNameError(false); }}
+              onKeyDown={e => e.key === 'Enter' && proceed()}
+            />
+            <div style={{ height: 20, marginBottom: 16 }}>
+              {nameError && <div style={{ fontFamily: 'var(--qf-body)', fontSize: 13, color: '#E0564B' }}>Enter a team name to continue</div>}
+            </div>
+          </div>
+
+          <div style={{ fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 13, color: 'var(--qf-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Members</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {members.map((m, i) => (
+              <div key={i} style={{ display: 'flex', gap: 8 }}>
+                <input
+                  style={{ ...inputBase, flex: 1 }}
+                  placeholder={`Member ${i + 1} name`}
+                  value={m}
+                  onChange={e => { const a = [...members]; a[i] = e.target.value; setMembers(a); }}
+                />
+                <button
+                  onPointerUp={(e) => { e.currentTarget.releasePointerCapture(e.pointerId); setMembers(members.filter((_, j) => j !== i)); }}
+                  style={{ width: 44, height: 44, borderRadius: 12, border: 'none', background: 'color-mix(in srgb, #E0564B 10%, transparent)', color: '#E0564B', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}>
+                  <Icon name="close" size={15} stroke={2.6} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            onPointerUp={(e) => { e.currentTarget.releasePointerCapture(e.pointerId); setMembers([...members, '']); }}
+            style={{ width: '100%', marginTop: 10, padding: '12px', borderRadius: 12, border: '1.5px dashed var(--qf-line)', background: 'transparent', color: 'var(--qf-primary)', fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}>
+            <Icon name="plus" size={16} stroke={2.6} /> Add member
+          </button>
+        </div>
+      </ScreenScroll>
+      <FooterBar>
+        <Btn full variant="primary" icon="play" onClick={proceed}>Enter lobby</Btn>
+      </FooterBar>
+    </>
+  );
+}
+
+export function PlayLobby({ race, go, back, t, mapStyle, startPlay, play }) {
   const [count, setCount] = useState(null);
+  const teamName = play.teamName || 'Your Team';
+  const roster = play.roster || [];
 
   useEffect(() => {
     if (count === null) return;
@@ -126,39 +163,42 @@ export function PlayLobby({ race, go, back, t, mapStyle, startPlay }) {
             ))}
           </div>
 
-          <div style={{ marginTop: 18, padding: 16, borderRadius: 20, background: 'var(--qf-surface)', border: '1px solid var(--qf-line)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 11, height: 11, borderRadius: 3, background: 'var(--qf-primary)' }} />
-                <span style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 17, color: 'var(--qf-ink)' }}>Compass Crew</span>
-                <span style={{ fontFamily: 'var(--qf-body)', fontSize: 12, fontWeight: 700, color: 'var(--qf-primary)', background: 'var(--qf-surface-2)', padding: '3px 8px', borderRadius: 99 }}>YOU</span>
-              </div>
-              <button style={{ border: 'none', background: 'transparent', color: 'var(--qf-muted)', cursor: 'pointer' }}><Icon name="edit" size={17} stroke={2.3} /></button>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', marginTop: 14 }}>
-              {ROSTER.map((n, i) => (
-                <div key={i} style={{ marginLeft: i ? -8 : 0 }}>
-                  <Avatar name={n} color={['#FF5C39', '#7C6CF6', '#0FB5A4', '#EC6FB0'][i]} size={38} />
+          <div style={{ marginTop: 12, padding: '14px 16px', borderRadius: 18, background: 'var(--qf-surface)', border: '1px solid var(--qf-line)' }}>
+            <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 14, color: 'var(--qf-ink)', marginBottom: 10 }}>How to win</div>
+            {[
+              ['target', `Complete stops in any order — no set route`],
+              ['star', `Earn points by finishing activities at each stop`],
+              ['trophy', `Highest score when time runs out wins`],
+            ].map(([icon, text], i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: i < 2 ? 8 : 0 }}>
+                <div style={{ width: 30, height: 30, borderRadius: 10, background: 'var(--qf-surface-2)', color: 'var(--qf-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Icon name={icon} size={16} stroke={2.2} />
                 </div>
-              ))}
-              <div style={{ marginLeft: 10, fontFamily: 'var(--qf-body)', fontSize: 13, color: 'var(--qf-muted)' }}>
-                {ROSTER.map(n => n.split(' ')[0]).join(', ')}
+                <span style={{ fontFamily: 'var(--qf-body)', fontSize: 13.5, color: 'var(--qf-ink)', lineHeight: 1.3 }}>{text}</span>
               </div>
-            </div>
+            ))}
           </div>
 
-          <div style={{ marginTop: 16 }}>
-            <div style={{ fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 12.5, color: 'var(--qf-muted)', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 10 }}>Also racing today</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {TEAMS.filter(tm => !tm.you).map(tm => (
-                <div key={tm.id} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '9px 12px', borderRadius: 14, background: 'var(--qf-surface)', border: '1px solid var(--qf-line)' }}>
-                  <Avatar name={tm.name} color={tm.color} size={30} />
-                  <span style={{ flex: 1, fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 14.5, color: 'var(--qf-ink)' }}>{tm.name}</span>
-                  <span style={{ fontFamily: 'var(--qf-body)', fontSize: 12.5, color: 'var(--qf-muted)' }}>{tm.members} players</span>
-                </div>
-              ))}
+          <div style={{ marginTop: 18, padding: 16, borderRadius: 20, background: 'var(--qf-surface)', border: '1px solid var(--qf-line)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ width: 11, height: 11, borderRadius: 3, background: 'var(--qf-primary)', flexShrink: 0 }} />
+              <span style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 17, color: 'var(--qf-ink)' }}>{teamName}</span>
+              <span style={{ fontFamily: 'var(--qf-body)', fontSize: 12, fontWeight: 700, color: 'var(--qf-primary)', background: 'var(--qf-surface-2)', padding: '3px 8px', borderRadius: 99 }}>YOU</span>
             </div>
+            {roster.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', marginTop: 14 }}>
+                {roster.map((n, i) => (
+                  <div key={i} style={{ marginLeft: i ? -8 : 0 }}>
+                    <Avatar name={n} color={['#FF5C39', '#7C6CF6', '#0FB5A4', '#EC6FB0', '#F59E0B', '#3B82F6'][i % 6]} size={38} />
+                  </div>
+                ))}
+                <div style={{ marginLeft: 10, fontFamily: 'var(--qf-body)', fontSize: 13, color: 'var(--qf-muted)' }}>
+                  {roster.map(n => n.split(' ')[0]).join(', ')}
+                </div>
+              </div>
+            )}
           </div>
+
         </div>
       </ScreenScroll>
       <FooterBar blur>
@@ -178,8 +218,27 @@ export function PlayLobby({ race, go, back, t, mapStyle, startPlay }) {
 export function PlayMap({ race, play, go, back, t, mapStyle }) {
   const total = race.stops.length;
   const allDone = play.completedIds.length >= total;
-  const rows = buildLeaderboard(race, play);
-  const rank = myRank(rows);
+  const rank = qfRank(race, play);
+
+  const [secsLeft, setSecsLeft] = useState(() => {
+    if (!play.startTime) return race.duration * 60;
+    return Math.max(0, race.duration * 60 - Math.floor((Date.now() - play.startTime) / 1000));
+  });
+
+  useEffect(() => {
+    if (allDone) return;
+    const id = setInterval(() => {
+      const s = play.startTime ? Math.max(0, race.duration * 60 - Math.floor((Date.now() - play.startTime) / 1000)) : 0;
+      setSecsLeft(s);
+      if (s === 0) { clearInterval(id); go({ name: 'recap' }); }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [allDone, play.startTime]);
+
+  const mins = Math.floor(secsLeft / 60);
+  const secs = secsLeft % 60;
+  const timeStr = `${mins}:${String(secs).padStart(2, '0')}`;
+  const urgent = secsLeft <= 120;
 
   if (allDone) {
     return (
@@ -211,15 +270,26 @@ export function PlayMap({ race, play, go, back, t, mapStyle }) {
           <div style={{ fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 11.5, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--qf-primary)' }}>{race.name}</div>
           <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 21, color: 'var(--qf-ink)' }}>{play.completedIds.length} of {total} done</div>
         </div>
-        <button onClick={() => go({ name: 'leaderboard' })} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 13px', borderRadius: 14, border: 'none', background: 'var(--qf-surface)', boxShadow: '0 3px 10px -4px var(--qf-shadow)', cursor: 'pointer', WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}>
-          <Icon name="trophy" size={17} stroke={2.3} style={{ color: 'var(--qf-accent)' }} />
-          <span style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 15, color: 'var(--qf-ink)' }}>#{rank}</span>
-        </button>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-          <span style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 18, color: 'var(--qf-primary)' }}>{play.score}</span>
-          <span style={{ fontFamily: 'var(--qf-body)', fontSize: 10.5, color: 'var(--qf-muted)', textTransform: 'uppercase', letterSpacing: 0.4 }}>pts</span>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 99, background: 'var(--qf-accent)', color: 'var(--qf-accent-ink)', fontFamily: 'var(--qf-display)', fontWeight: 700, fontSize: 13 }}>
+            <Icon name="trophy" size={13} stroke={2.4} /> {ordinal(rank)}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
+            <span style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 18, color: 'var(--qf-primary)' }}>{play.score}</span>
+            <span style={{ fontFamily: 'var(--qf-body)', fontSize: 10.5, color: 'var(--qf-muted)', textTransform: 'uppercase', letterSpacing: 0.4 }}>pts</span>
+          </div>
         </div>
       </div>
+
+      {/* Timer bar */}
+      <div style={{ margin: '2px 18px 6px', padding: '9px 14px', borderRadius: 14, background: urgent ? 'color-mix(in srgb, #E0564B 10%, var(--qf-surface))' : 'var(--qf-surface)', border: `1.5px solid ${urgent ? 'color-mix(in srgb, #E0564B 35%, var(--qf-line))' : 'var(--qf-line)'}`, display: 'flex', alignItems: 'center', gap: 10, transition: 'all .4s' }}>
+        <Icon name="clock" size={16} stroke={2.3} style={{ color: urgent ? '#E0564B' : 'var(--qf-muted)', flexShrink: 0, transition: 'color .4s' }} />
+        <div style={{ flex: 1, height: 6, borderRadius: 99, background: 'var(--qf-line)', overflow: 'hidden' }}>
+          <div style={{ height: '100%', borderRadius: 99, background: urgent ? '#E0564B' : 'var(--qf-primary)', width: `${(secsLeft / (race.duration * 60)) * 100}%`, transition: 'width 1s linear, background .4s' }} />
+        </div>
+        <span style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 16, color: urgent ? '#E0564B' : 'var(--qf-ink)', minWidth: 46, textAlign: 'right', transition: 'color .4s' }}>{timeStr}</span>
+      </div>
+
       <div style={{ padding: '0 18px 8px' }}>
         <Progress showDots dots={total} doneDots={play.completedIds.length} />
       </div>
@@ -279,12 +349,9 @@ export function PlayMap({ race, play, go, back, t, mapStyle }) {
   );
 }
 
-export function PlayResult({ race, play, prevRank, go }) {
+export function PlayResult({ race, play, go }) {
   const total = race.stops.length;
   const allDone = play.completedIds.length >= total;
-  const rows = buildLeaderboard(race, play);
-  const rank = myRank(rows);
-  const climbed = prevRank && rank < prevRank;
   const [burst, setBurst] = useState(false);
   useEffect(() => { const tm = setTimeout(() => setBurst(true), 200); return () => clearTimeout(tm); }, []);
 
@@ -303,17 +370,11 @@ export function PlayResult({ race, play, prevRank, go }) {
             <div style={{ fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--qf-muted)' }}>Points this stop</div>
             <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 52, color: 'var(--qf-primary)', lineHeight: 1.1, animation: 'qfPop .5s .1s ease both' }}>+{play.lastEarned}</div>
             <div style={{ display: 'flex', borderTop: '1px solid var(--qf-line)', marginTop: 14, paddingTop: 14 }}>
+              <Stat icon="trophy" value={ordinal(qfRank(race, play))} label="Position" tint="var(--qf-accent)" />
               <Stat icon="star" value={play.score} label="Total" tint="var(--qf-ink)" />
-              <Stat icon="trophy" value={'#' + rank} label="Rank" tint="var(--qf-accent)" />
               <Stat icon="pin" value={play.completedIds.length + '/' + total} label="Stops" tint="var(--qf-secondary)" />
             </div>
           </div>
-
-          {climbed && (
-            <div style={{ marginTop: 14, display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 15px', borderRadius: 99, whiteSpace: 'nowrap', background: 'color-mix(in srgb, var(--qf-secondary) 14%, transparent)', color: 'var(--qf-secondary)', fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 14 }}>
-              <Icon name="bolt" size={16} stroke={2.4} /> You climbed to #{rank}!
-            </div>
-          )}
         </div>
       </ScreenScroll>
       <FooterBar>
@@ -325,65 +386,10 @@ export function PlayResult({ race, play, prevRank, go }) {
   );
 }
 
-export function PlayLeaderboard({ race, play, back }) {
-  const rows = buildLeaderboard(race, play);
-  const total = race.stops.length;
-
-  return (
-    <>
-      <TopBar
-        sub={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--qf-primary)', display: 'inline-block', animation: 'qfBlink 1.4s infinite' }} /> Live standings</span>}
-        title="Leaderboard" onBack={back} />
-      <ScreenScroll>
-        <div style={{ padding: '0 18px 18px' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 10, padding: '8px 0 18px' }}>
-            {[rows[1], rows[0], rows[2]].map((r, i) => {
-              const h = [78, 104, 60][i];
-              return (
-                <div key={r.team.id} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <Avatar name={r.team.name} color={r.team.color} size={i === 1 ? 50 : 40} you={r.you} />
-                  <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 12.5, color: 'var(--qf-ink)', marginTop: 6, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{r.team.name.split(' ')[0]}</div>
-                  <div style={{ fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 12, color: 'var(--qf-muted)' }}>{r.score}</div>
-                  <div style={{ width: '78%', height: h, borderRadius: '10px 10px 0 0', marginTop: 8, background: r.you ? 'var(--qf-primary)' : 'var(--qf-surface-2)', border: '1px solid var(--qf-line)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 8 }}>
-                    <span style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 20, color: r.you ? '#fff' : 'var(--qf-muted)' }}>{r.rank}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            {rows.map(r => (
-              <div key={r.team.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 16, background: r.you ? 'color-mix(in srgb, var(--qf-primary) 9%, var(--qf-surface))' : 'var(--qf-surface)', border: r.you ? '1.5px solid var(--qf-primary)' : '1px solid var(--qf-line)' }}>
-                <RankBadge rank={r.rank} />
-                <Avatar name={r.team.name} color={r.team.color} size={36} you={r.you} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 15.5, color: 'var(--qf-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {r.team.name}{r.you && <span style={{ color: 'var(--qf-primary)', fontSize: 12, marginLeft: 6 }}>YOU</span>}
-                  </div>
-                  <div style={{ fontFamily: 'var(--qf-body)', fontSize: 12, color: 'var(--qf-muted)' }}>{r.stopsDone}/{total} stops</div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 18, color: r.you ? 'var(--qf-primary)' : 'var(--qf-ink)' }}>{r.score}</div>
-                  <div style={{ fontFamily: 'var(--qf-body)', fontSize: 10.5, color: 'var(--qf-muted)', textTransform: 'uppercase', letterSpacing: 0.4 }}>pts</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </ScreenScroll>
-      <FooterBar><Btn full variant="dark" onClick={back}>Back to the map</Btn></FooterBar>
-    </>
-  );
-}
-
 export function PlayRecap({ race, play, go, mapStyle, restart }) {
-  const rows = buildLeaderboard(race, { ...play, idx: race.stops.length });
-  const rank = myRank(rows);
   const [burst, setBurst] = useState(false);
   useEffect(() => { const tm = setTimeout(() => setBurst(true), 250); return () => clearTimeout(tm); }, []);
   const photoStops = race.stops.filter(s => s.activities.some(a => a.type === 'photo'));
-  const place = rank === 1 ? 'Champions!' : rank === 2 ? 'Runners-up!' : rank === 3 ? 'On the podium!' : 'Quest complete!';
 
   return (
     <>
@@ -396,18 +402,15 @@ export function PlayRecap({ race, play, go, mapStyle, restart }) {
               <Icon name="trophy" size={44} stroke={2.2} />
             </div>
             <div style={{ fontFamily: 'var(--qf-body)', fontWeight: 700, letterSpacing: 1.5, fontSize: 12.5, opacity: 0.9, marginTop: 16, textTransform: 'uppercase' }}>{race.name}</div>
-            <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 34, lineHeight: 1.05, marginTop: 4 }}>{place}</div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 14, padding: '8px 16px', borderRadius: 99, background: 'rgba(255,255,255,0.18)', fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 16 }}>
-              <Icon name="medal" size={18} stroke={2.2} /> Finished #{rank} of {rows.length}
-            </div>
+            <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 34, lineHeight: 1.05, marginTop: 4 }}>Quest complete!</div>
           </div>
         </div>
 
         <div style={{ padding: '18px 18px 8px' }}>
           <div style={{ display: 'flex', gap: 8 }}>
-            {[['star', play.score, 'Points'], ['pin', race.stops.length, 'Stops'], ['clock', Math.round(race.duration * 0.82) + 'm', 'Your time']].map((s, i) => (
+            {[['trophy', ordinal(qfRank(race, play)), 'Place'], ['star', play.score, 'Points'], ['pin', race.stops.length, 'Stops'], ['clock', play.startTime ? Math.round((Date.now() - play.startTime) / 60000) + 'm' : race.duration + 'm', 'Time']].map((s, i) => (
               <div key={i} style={{ flex: 1, padding: '14px 4px', borderRadius: 16, background: 'var(--qf-surface)', border: '1px solid var(--qf-line)' }}>
-                <Stat icon={s[0]} value={s[1]} label={s[2]} tint="var(--qf-primary)" />
+                <Stat icon={s[0]} value={s[1]} label={s[2]} tint={i === 0 ? 'var(--qf-accent)' : 'var(--qf-primary)'} />
               </div>
             ))}
           </div>
@@ -428,17 +431,6 @@ export function PlayRecap({ race, play, go, mapStyle, restart }) {
             {photoStops.length === 0 && (
               <div style={{ gridColumn: '1/-1', padding: 20, borderRadius: 16, background: 'var(--qf-surface-2)', textAlign: 'center', fontFamily: 'var(--qf-body)', fontSize: 13.5, color: 'var(--qf-muted)' }}>No photo challenges in this quest.</div>
             )}
-          </div>
-
-          <div style={{ margin: '24px 2px 12px', fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 18, color: 'var(--qf-ink)' }}>Final standings</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {rows.map(r => (
-              <div key={r.team.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 14, background: r.you ? 'color-mix(in srgb, var(--qf-primary) 9%, var(--qf-surface))' : 'var(--qf-surface)', border: r.you ? '1.5px solid var(--qf-primary)' : '1px solid var(--qf-line)' }}>
-                <RankBadge rank={r.rank} />
-                <span style={{ flex: 1, fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 15, color: 'var(--qf-ink)' }}>{r.team.name}</span>
-                <span style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 16, color: r.you ? 'var(--qf-primary)' : 'var(--qf-ink)' }}>{r.score}</span>
-              </div>
-            ))}
           </div>
           <div style={{ height: 8 }} />
         </div>

@@ -34,6 +34,19 @@ function NumericInput({ style, value, onChange }) {
 
 const totalPoints = (race) => race.stops.reduce((s, st) => s + st.activities.reduce((a, x) => a + (x.points || 0), 0), 0);
 
+function geoPositionStops(stops) {
+  const geo = stops.filter(s => s.lat != null && s.lng != null);
+  if (geo.length < 2) return stops;
+  const lats = geo.map(s => s.lat), lngs = geo.map(s => s.lng);
+  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
+  const latR = maxLat - minLat || 0.001, lngR = maxLng - minLng || 0.001;
+  return stops.map(s => {
+    if (s.lat == null || s.lng == null) return s;
+    return { ...s, x: Math.round(12 + ((s.lng - minLng) / lngR) * 76), y: Math.round(88 - ((s.lat - minLat) / latR) * 76) };
+  });
+}
+
 const actSummary = (a) => {
   if (a.type === 'gps') return 'Geo check-in unlocks the stop';
   if (a.type === 'photo') return a.prompt;
@@ -85,7 +98,7 @@ export function OrgBuilder({ race, setRace, go, back, t, mapStyle }) {
           </div>
 
           <div style={{ display: 'flex', gap: 8, margin: '14px 0 4px' }}>
-            {[['pin', race.stops.length, 'Stops', false], ['star', totalPoints(race), 'Points', false], ['clock', race.duration + 'm', 'Time', true], ['users', race.teamCount, 'Teams', true]].map((s, i) => (
+            {[['pin', race.stops.length, 'Stops', false], ['star', totalPoints(race), 'Points', false], ['clock', race.duration + 'm', 'Time', true]].map((s, i) => (
               <div key={i} onClick={s[3] ? () => go({ name: 'orgDetails' }) : undefined}
                 style={{ ...cardMini, cursor: s[3] ? 'pointer' : 'default', position: 'relative', outline: s[3] ? '1.5px dashed var(--qf-line)' : 'none' }}>
                 <Stat icon={s[0]} value={s[1]} label={s[2]} tint="var(--qf-primary)" />
@@ -153,14 +166,9 @@ export function OrgDetails({ race, setRace, back, t }) {
           <Field label="Tagline">
             <input style={inputStyle} value={race.tagline} onChange={e => setRace({ ...race, tagline: e.target.value })} />
           </Field>
-          <div style={{ display: 'flex', gap: 12 }}>
-            <Field label="Time limit (min)">
-              <NumericInput style={inputStyle} value={race.duration} onChange={v => setRace({ ...race, duration: v })} />
-            </Field>
-            <Field label="Teams">
-              <NumericInput style={inputStyle} value={race.teamCount} onChange={v => setRace({ ...race, teamCount: v })} />
-            </Field>
-          </div>
+          <Field label="Time limit (min)">
+            <NumericInput style={inputStyle} value={race.duration} onChange={v => setRace({ ...race, duration: v })} />
+          </Field>
         </div>
       </ScreenScroll>
       <FooterBar>
@@ -174,33 +182,50 @@ export function OrgStop({ race, setRace, go, back, t, mapStyle, stopId }) {
   const stop = race.stops.find(s => s.id === stopId);
   const idx = race.stops.findIndex(s => s.id === stopId);
   const [gpsStatus, setGpsStatus] = useState('idle'); // idle | locating | denied | error
-  const [coordStr, setCoordStr] = useState('');
-  const [coordError, setCoordError] = useState('');
+  const [addrStr, setAddrStr] = useState('');
+  const [addrStatus, setAddrStatus] = useState('idle'); // idle | searching | found | error
+  const [addrResult, setAddrResult] = useState(null); // { display, lat, lng }
   if (!stop) return null;
   const update = (patch) => setRace({ ...race, stops: race.stops.map(s => s.id === stopId ? { ...s, ...patch } : s) });
   const delActivity = (k) => update({ activities: stop.activities.filter((_, i) => i !== k) });
   const delStop = () => { setRace({ ...race, stops: race.stops.filter(s => s.id !== stopId) }); back(); };
 
+  function saveGPS(lat, lng) {
+    const updated = race.stops.map(s => s.id === stopId ? { ...s, lat, lng } : s);
+    setRace({ ...race, stops: geoPositionStops(updated) });
+  }
+
   function captureGPS() {
     if (!navigator.geolocation) { setGpsStatus('error'); return; }
     setGpsStatus('locating');
     navigator.geolocation.getCurrentPosition(
-      pos => { update({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setGpsStatus('idle'); },
+      pos => { saveGPS(pos.coords.latitude, pos.coords.longitude); setGpsStatus('idle'); },
       err => { setGpsStatus(err.code === 1 ? 'denied' : 'error'); setTimeout(() => setGpsStatus('idle'), 3000); },
       { enableHighAccuracy: true, timeout: 12000 }
     );
   }
 
-  function applyCoords() {
-    const parts = coordStr.split(',').map(s => s.trim());
-    if (parts.length !== 2) { setCoordError('Enter as: lat, lng'); return; }
-    const lat = parseFloat(parts[0]), lng = parseFloat(parts[1]);
-    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      setCoordError('Invalid coordinates'); return;
+  async function searchAddress() {
+    if (!addrStr.trim()) return;
+    setAddrStatus('searching');
+    setAddrResult(null);
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addrStr)}&format=json&limit=1`;
+      const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+      const data = await res.json();
+      if (!data.length) { setAddrStatus('error'); return; }
+      setAddrResult({ display: data[0].display_name, lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) });
+      setAddrStatus('found');
+    } catch {
+      setAddrStatus('error');
     }
-    update({ lat, lng });
-    setCoordStr('');
-    setCoordError('');
+  }
+
+  function confirmAddress() {
+    saveGPS(addrResult.lat, addrResult.lng);
+    setAddrStr('');
+    setAddrResult(null);
+    setAddrStatus('idle');
   }
 
   return (
@@ -226,7 +251,7 @@ export function OrgStop({ race, setRace, go, back, t, mapStyle, stopId }) {
                   <div style={{ fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 13, color: 'var(--qf-ink)' }}>Location saved</div>
                   <div style={{ fontFamily: 'var(--qf-body)', fontSize: 11.5, color: 'var(--qf-muted)', marginTop: 2 }}>{stop.lat.toFixed(5)}, {stop.lng.toFixed(5)}</div>
                 </div>
-                <button onClick={() => update({ lat: undefined, lng: undefined })} style={{ ...iconBtn, width: 30, height: 30, boxShadow: 'none', background: 'transparent', color: 'var(--qf-muted)' }}>
+                <button onClick={() => { const updated = race.stops.map(s => s.id === stopId ? { ...s, lat: undefined, lng: undefined } : s); setRace({ ...race, stops: geoPositionStops(updated) }); }} style={{ ...iconBtn, width: 30, height: 30, boxShadow: 'none', background: 'transparent', color: 'var(--qf-muted)' }}>
                   <Icon name="close" size={14} stroke={2.3} />
                 </button>
               </div>
@@ -238,21 +263,33 @@ export function OrgStop({ race, setRace, go, back, t, mapStyle, stopId }) {
                 </button>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '10px 0' }}>
                   <div style={{ flex: 1, height: 1, background: 'var(--qf-line)' }} />
-                  <span style={{ fontFamily: 'var(--qf-body)', fontSize: 12, color: 'var(--qf-muted)', fontWeight: 600 }}>or paste from Google Maps</span>
+                  <span style={{ fontFamily: 'var(--qf-body)', fontSize: 12, color: 'var(--qf-muted)', fontWeight: 600 }}>or search by address</span>
                   <div style={{ flex: 1, height: 1, background: 'var(--qf-line)' }} />
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <input
                     style={{ ...inputStyle, flex: 1 }}
-                    value={coordStr}
-                    onChange={e => { setCoordStr(e.target.value); setCoordError(''); }}
-                    placeholder="1.35210, 103.81980"
+                    value={addrStr}
+                    onChange={e => { setAddrStr(e.target.value); setAddrStatus('idle'); setAddrResult(null); }}
+                    onKeyDown={e => e.key === 'Enter' && searchAddress()}
+                    placeholder="e.g. Marina Bay Sands, Singapore"
                   />
-                  <button onClick={applyCoords} style={{ ...iconBtn, flexShrink: 0, background: 'var(--qf-primary)', color: 'var(--qf-primary-ink)', boxShadow: '0 4px 12px -6px var(--qf-primary)' }}>
-                    <Icon name="check" size={18} stroke={2.6} />
+                  <button onClick={searchAddress} disabled={addrStatus === 'searching'} style={{ ...iconBtn, flexShrink: 0, background: 'var(--qf-primary)', color: 'var(--qf-primary-ink)', boxShadow: '0 4px 12px -6px var(--qf-primary)', opacity: addrStatus === 'searching' ? 0.6 : 1 }}>
+                    <Icon name={addrStatus === 'searching' ? 'clock' : 'search'} size={18} stroke={2.4} />
                   </button>
                 </div>
-                {coordError && <div style={{ marginTop: 6, fontFamily: 'var(--qf-body)', fontSize: 12.5, color: '#E0564B' }}>{coordError}</div>}
+                {addrStatus === 'error' && <div style={{ marginTop: 6, fontFamily: 'var(--qf-body)', fontSize: 12.5, color: '#E0564B' }}>Address not found — try being more specific.</div>}
+                {addrStatus === 'found' && addrResult && (
+                  <div style={{ marginTop: 8, padding: '10px 12px', borderRadius: 12, background: 'var(--qf-surface-2)', border: '1px solid var(--qf-line)', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                    <Icon name="pin" size={16} stroke={2.3} style={{ color: 'var(--qf-primary)', flexShrink: 0, marginTop: 2 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: 'var(--qf-body)', fontSize: 12.5, color: 'var(--qf-ink)', lineHeight: 1.4 }}>{addrResult.display}</div>
+                    </div>
+                    <button onClick={confirmAddress} style={{ ...iconBtn, width: 32, height: 32, flexShrink: 0, background: 'var(--qf-secondary)', color: '#fff', boxShadow: 'none' }}>
+                      <Icon name="check" size={16} stroke={2.8} />
+                    </button>
+                  </div>
+                )}
               </>
             )}
             {gpsStatus === 'denied' && <div style={{ marginTop: 8, fontFamily: 'var(--qf-body)', fontSize: 12.5, color: '#E0564B' }}>Location access denied — enable it in browser settings.</div>}
@@ -306,6 +343,7 @@ export function OrgAddActivity({ race, setRace, back, stopId, t }) {
     if (type === 'quiz') { a.question = cfg.question || 'Your question'; a.answer = cfg.answer || ''; }
     if (type === 'choice') { a.question = cfg.question || 'Your question'; a.options = cfg.options.filter(Boolean); a.correctIndex = cfg.correctIndex; }
     if (type === 'riddle') { a.riddle = cfg.riddle || 'Your riddle'; a.answer = cfg.answer || ''; }
+    if (cfg.clue) a.clue = cfg.clue;
     setRace({ ...race, stops: race.stops.map(s => s.id === stopId ? { ...s, activities: [...s.activities, a] } : s) });
     back();
   }
@@ -363,6 +401,10 @@ export function OrgAddActivity({ race, setRace, back, stopId, t }) {
               </>}
               {type === 'gps' && <div style={{ padding: 14, borderRadius: 14, background: 'var(--qf-surface-2)', fontFamily: 'var(--qf-body)', fontSize: 13.5, color: 'var(--qf-muted)', marginBottom: 14 }}>Players must physically reach this spot. We'll auto-detect arrival within a 30m radius to unlock the stop.</div>}
 
+              <Field label="Clue (optional)" hint="A hint players can see while attempting this activity">
+                <input style={inputStyle} value={cfg.clue || ''} onChange={e => set('clue', e.target.value)} placeholder="e.g. Look for the plaque near the entrance" />
+              </Field>
+
               <Field label="Points">
                 <div style={{ display: 'flex', gap: 8 }}>
                   {[50, 100, 150, 200].map(p => (
@@ -381,8 +423,6 @@ export function OrgAddActivity({ race, setRace, back, stopId, t }) {
 
 export function OrgPublish({ race, go, back, t, mapStyle }) {
   const [copied, setCopied] = useState(false);
-  const [showTeams, setShowTeams] = useState(false);
-  const [teamNames, setTeamNames] = useState(['Team 1', 'Team 2', 'Team 3']);
   const code = 'QF-' + (race.name.replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'RUN') + '-42';
 
   function shareLink() {
@@ -405,7 +445,7 @@ export function OrgPublish({ race, go, back, t, mapStyle }) {
           <div style={{ fontFamily: 'var(--qf-body)', fontSize: 14, color: 'var(--qf-muted)', marginTop: 4 }}>{race.tagline}</div>
 
           <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-            {[['pin', race.stops.length, 'Stops'], ['star', totalPoints(race), 'Points'], ['clock', race.duration + 'm', 'Time'], ['users', race.teamCount, 'Teams']].map((s, i) => (
+            {[['pin', race.stops.length, 'Stops'], ['star', totalPoints(race), 'Points'], ['clock', race.duration + 'm', 'Time']].map((s, i) => (
               <div key={i} style={cardMini}><Stat icon={s[0]} value={s[1]} label={s[2]} tint="var(--qf-primary)" /></div>
             ))}
           </div>
@@ -419,9 +459,8 @@ export function OrgPublish({ race, go, back, t, mapStyle }) {
               <div style={{ flex: 1 }}>
                 <div style={{ fontFamily: 'var(--qf-body)', fontSize: 12, color: 'var(--qf-muted)', fontWeight: 600 }}>JOIN CODE</div>
                 <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 26, letterSpacing: 1, color: 'var(--qf-primary)' }}>{code}</div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <div style={{ marginTop: 8 }}>
                   <Btn size="sm" variant="soft" icon="share" onClick={shareLink}>{copied ? 'Copied!' : 'Share link'}</Btn>
-                  <Btn size="sm" variant="soft" icon="users" onClick={() => setShowTeams(true)}>Add teams</Btn>
                 </div>
               </div>
             </div>
@@ -432,81 +471,96 @@ export function OrgPublish({ race, go, back, t, mapStyle }) {
         <Btn variant="soft" onClick={back} style={{ flex: '0 0 auto' }} icon="edit"> </Btn>
         <Btn full variant="primary" icon="play" onClick={() => go({ name: 'orgDash' })}>Launch quest</Btn>
       </FooterBar>
-
-      <Sheet open={showTeams} onClose={() => setShowTeams(false)}>
-        <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 19, marginBottom: 14 }}>Teams</div>
-        {teamNames.map((name, i) => (
-          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
-            <input style={{ ...inputStyle, flex: 1 }} value={name}
-              onChange={e => { const a = [...teamNames]; a[i] = e.target.value; setTeamNames(a); }}
-              placeholder={`Team ${i + 1}`} />
-            <button onClick={() => setTeamNames(teamNames.filter((_, j) => j !== i))}
-              style={{ ...iconBtn, color: '#E0564B', background: 'color-mix(in srgb, #E0564B 10%, transparent)', boxShadow: 'none' }}>
-              <Icon name="close" size={16} stroke={2.4} />
-            </button>
-          </div>
-        ))}
-        <button onClick={() => setTeamNames([...teamNames, `Team ${teamNames.length + 1}`])}
-          style={{ ...addStopBtn, marginTop: 4, marginBottom: 14 }}>
-          <Icon name="plus" size={17} stroke={2.6} /> Add team
-        </button>
-        <Btn full onClick={() => setShowTeams(false)}>Done</Btn>
-      </Sheet>
     </>
   );
 }
 
-const TEAM_COLORS = ['#E85D3A', '#1FA85A', '#8B5CF6', '#F59E0B', '#3B82F6'];
-const TEAM_PACE = [1.0, 0.82, 0.91, 0.68, 0.95];
-
-export function OrgDashboard({ race, go, back, mapStyle }) {
-  const [tick, setTick] = useState(0);
+export function OrgDashboard({ race, setRace, go, back, mapStyle, play }) {
   const total = race.stops.length;
-  const teamNames = ['The Trailblazers', 'Summit Squad', 'Pathfinders', 'North Stars', 'Compass Crew'];
+  const pending = race.pendingPhotos || [];
 
-  useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 3000);
-    return () => clearInterval(id);
-  }, []);
-
-  const teams = teamNames.map((name, i) => {
-    const progress = Math.min(total, Math.floor(tick * TEAM_PACE[i] * 0.18));
-    const pts = race.stops.slice(0, progress).reduce((s, st) => s + totalPoints({ stops: [st] }), 0);
-    return { name, color: TEAM_COLORS[i], progress, pts };
-  }).sort((a, b) => b.pts - a.pts || b.progress - a.progress);
+  function approvePhoto(id) {
+    setRace(r => ({ ...r, pendingPhotos: (r.pendingPhotos || []).filter(p => p.id !== id) }));
+  }
+  function rejectPhoto(id) {
+    setRace(r => ({ ...r, pendingPhotos: (r.pendingPhotos || []).filter(p => p.id !== id) }));
+  }
 
   return (
     <>
       <TopBar onBack={back} title={race.name}
-        action={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 11px', borderRadius: 99, background: 'color-mix(in srgb, var(--qf-secondary) 16%, transparent)', color: 'var(--qf-secondary)', fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 12 }}>
-          <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--qf-secondary)', animation: 'qfBlink 1.2s ease infinite' }} /> LIVE
-        </span>} />
+        action={<div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {pending.length > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 99, background: 'color-mix(in srgb, var(--qf-primary) 16%, transparent)', color: 'var(--qf-primary)', fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 12 }}>
+            <Icon name="camera" size={13} stroke={2.4} /> {pending.length}
+          </span>}
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 11px', borderRadius: 99, background: 'color-mix(in srgb, var(--qf-secondary) 16%, transparent)', color: 'var(--qf-secondary)', fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 12 }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--qf-secondary)', animation: 'qfBlink 1.2s ease infinite' }} /> LIVE
+          </span>
+        </div>} />
       <ScreenScroll>
         <div style={{ padding: '0 18px 16px' }}>
           <div style={{ borderRadius: 22, overflow: 'hidden', border: '1px solid var(--qf-line)', marginBottom: 16 }}>
             <AdventureMap stops={race.stops} mapStyle={mapStyle} mode="build" height={200} />
           </div>
 
-          <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 16, color: 'var(--qf-ink)', marginBottom: 10 }}>Live standings</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {teams.map((tm, i) => (
-              <div key={tm.name} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 16, background: 'var(--qf-surface)', border: '1px solid var(--qf-line)' }}>
-                <div style={{ width: 28, height: 28, borderRadius: '50%', background: tm.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 13, flexShrink: 0 }}>
-                  {i + 1}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 15, color: 'var(--qf-ink)' }}>{tm.name}</div>
-                  <div style={{ marginTop: 5 }}>
-                    <Progress showDots dots={total} doneDots={tm.progress} />
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 16, color: 'var(--qf-primary)' }}>{tm.pts}</div>
-                  <div style={{ fontFamily: 'var(--qf-body)', fontSize: 11, color: 'var(--qf-muted)' }}>pts</div>
-                </div>
+          {pending.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 16, color: 'var(--qf-ink)' }}>Photo reviews</div>
+                <div style={{ padding: '2px 9px', borderRadius: 99, background: 'var(--qf-primary)', color: '#fff', fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 12 }}>{pending.length}</div>
               </div>
-            ))}
-          </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {pending.map(p => (
+                  <div key={p.id} style={{ borderRadius: 16, background: 'var(--qf-surface)', border: '1px solid var(--qf-line)', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', gap: 12, padding: '12px 14px 10px' }}>
+                      <div style={{ width: 52, height: 52, borderRadius: 10, background: 'linear-gradient(135deg,#f0f0f0,#e0e0e0)', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {p.photoUrl
+                          ? <img src={p.photoUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                          : <Icon name="image" size={22} stroke={1.6} style={{ color: '#bbb' }} />}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 12.5, color: 'var(--qf-primary)' }}>{p.teamName} · {p.stopName}</div>
+                        <div style={{ fontFamily: 'var(--qf-body)', fontSize: 13, color: 'var(--qf-ink)', marginTop: 2, lineHeight: 1.35 }}>{p.prompt}</div>
+                        <div style={{ fontFamily: 'var(--qf-body)', fontSize: 12, color: 'var(--qf-muted)', marginTop: 3 }}>+{p.points} pts on approval</div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', borderTop: '1px solid var(--qf-line)' }}>
+                      <button onPointerUp={() => rejectPhoto(p.id)} style={{ flex: 1, padding: '11px 0', border: 'none', background: 'transparent', color: '#E0564B', fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                        <Icon name="close" size={15} stroke={2.6} /> Reject
+                      </button>
+                      <div style={{ width: 1, background: 'var(--qf-line)' }} />
+                      <button onPointerUp={() => approvePhoto(p.id)} style={{ flex: 1, padding: '11px 0', border: 'none', background: 'transparent', color: 'var(--qf-secondary)', fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                        <Icon name="check" size={15} stroke={2.8} /> Approve
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 16, color: 'var(--qf-ink)', marginBottom: 10 }}>Live standings</div>
+          {play && play.teamName ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 16, background: 'var(--qf-surface)', border: '1px solid var(--qf-line)', boxShadow: '0 4px 14px -10px var(--qf-shadow)' }}>
+              <div style={{ width: 36, height: 36, borderRadius: 12, background: 'var(--qf-accent)', color: 'var(--qf-accent-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--qf-display)', fontWeight: 700, fontSize: 17, flexShrink: 0 }}>1</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 16, color: 'var(--qf-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{play.teamName}</div>
+                <div style={{ marginTop: 5, height: 5, borderRadius: 99, background: 'var(--qf-line)', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', borderRadius: 99, background: 'var(--qf-secondary)', width: total > 0 ? `${(play.completedIds.length / total) * 100}%` : '0%', transition: 'width .5s ease' }} />
+                </div>
+                <div style={{ fontFamily: 'var(--qf-body)', fontSize: 12, color: 'var(--qf-muted)', marginTop: 4 }}>{play.completedIds.length} of {total} stops done</div>
+              </div>
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 700, fontSize: 20, color: 'var(--qf-primary)' }}>{play.score}</div>
+                <div style={{ fontFamily: 'var(--qf-body)', fontSize: 11, color: 'var(--qf-muted)', textTransform: 'uppercase', letterSpacing: 0.4 }}>pts</div>
+              </div>
+            </div>
+          ) : (
+            <div style={{ padding: '20px 16px', borderRadius: 16, background: 'var(--qf-surface)', border: '1px solid var(--qf-line)', textAlign: 'center' }}>
+              <Icon name="users" size={28} stroke={1.6} style={{ color: 'var(--qf-muted)', margin: '0 auto 10px' }} />
+              <div style={{ fontFamily: 'var(--qf-body)', fontSize: 14, color: 'var(--qf-muted)' }}>Teams will appear here as they join</div>
+            </div>
+          )}
         </div>
       </ScreenScroll>
       <FooterBar>

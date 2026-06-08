@@ -18,9 +18,6 @@ export default function HomeScreen({ race, go, t, mapStyle }) {
               <Icon name="compass" size={17} stroke={2.3} /> QuestForge
             </div>
             <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 38, lineHeight: 1.02, letterSpacing: -0.5 }}>Turn any place into an adventure.</div>
-            <div style={{ fontFamily: 'var(--qf-body)', fontSize: 15, opacity: 0.92, marginTop: 12, maxWidth: 300, lineHeight: 1.45 }}>
-              Build {qfWord(t, 'quests')} with stops, routes, photo missions and quizzes — then race your team to the finish.
-            </div>
           </div>
         </div>
 

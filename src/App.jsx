@@ -5,7 +5,7 @@ import IOSDevice from './components/IOSDevice.jsx';
 import HomeScreen from './screens/HomeScreen.jsx';
 import { OrgBuilder, OrgStop, OrgAddActivity, OrgPublish, OrgDashboard, OrgDetails } from './screens/OrgScreens.jsx';
 import PlayActivity from './screens/ActivityScreen.jsx';
-import { PlayJoin, PlayLobby, PlayMap, PlayResult, PlayLeaderboard, PlayRecap, qfRank } from './screens/PlayerScreens.jsx';
+import { PlayJoin, PlayTeamSetup, PlayLobby, PlayMap, PlayResult, PlayRecap, qfRank } from './screens/PlayerScreens.jsx';
 
 const TWEAK_DEFAULTS = {
   theme: 'sunset',
@@ -30,7 +30,7 @@ function QFApp() {
   const [stack, setStack] = useState([{ name: 'home' }]);
   const cur = stack[stack.length - 1];
 
-  const [play, setPlay] = useState({ completedIds: [], score: 0, lastEarned: 0, lastCompletedName: '' });
+  const [play, setPlay] = useState({ completedIds: [], score: 0, lastEarned: 0, lastCompletedName: '', teamName: '', roster: [] });
   const prevRankRef = useRef(null);
 
   const theme = THEMES[t.theme] || THEMES.sunset;
@@ -59,7 +59,7 @@ function QFApp() {
   function back() { setStack(s => s.length > 1 ? s.slice(0, -1) : s); }
 
   function startPlay() {
-    setPlay({ completedIds: [], score: 0, lastEarned: 0, lastCompletedName: '' });
+    setPlay({ completedIds: [], score: 0, lastEarned: 0, lastCompletedName: '', startTime: Date.now() });
     prevRankRef.current = null;
   }
 
@@ -79,17 +79,22 @@ function QFApp() {
     case 'orgStop': screen = <OrgStop {...common} stopId={cur.stopId} />; break;
     case 'orgAdd': screen = <OrgAddActivity {...common} stopId={cur.stopId} />; break;
     case 'orgPublish': screen = <OrgPublish {...common} />; break;
-    case 'orgDash': screen = <OrgDashboard {...common} />; break;
+    case 'orgDash': screen = <OrgDashboard {...common} play={play} />; break;
     case 'join': screen = <PlayJoin {...common} />; break;
-    case 'lobby': screen = <PlayLobby {...common} startPlay={startPlay} />; break;
+    case 'teamSetup': screen = <PlayTeamSetup {...common} setTeam={(teamName, roster) => setPlay(p => ({ ...p, teamName, roster }))} />; break;
+    case 'lobby': screen = <PlayLobby {...common} startPlay={startPlay} play={play} />; break;
     case 'play': screen = <PlayMap {...common} play={play} />; break;
     case 'activity': {
       const stop = race.stops.find(s => s.id === cur.stopId);
-      screen = <PlayActivity stop={stop} onStopDone={(earned) => { prevRankRef.current = qfRank(race, play); finishStop(earned, stop.id, stop.name); }} onBack={back} />;
+      screen = <PlayActivity
+        stop={stop}
+        onStopDone={(earned) => { prevRankRef.current = qfRank(race, play); finishStop(earned, stop.id, stop.name); }}
+        onBack={back}
+        onPhotoSubmit={(data) => setRace(r => ({ ...r, pendingPhotos: [...(r.pendingPhotos || []), { ...data, id: Date.now() + Math.random(), teamName: play.teamName || 'Unknown team' }] }))}
+      />;
       break;
     }
     case 'result': screen = <PlayResult {...common} play={play} prevRank={prevRankRef.current} />; break;
-    case 'leaderboard': screen = <PlayLeaderboard {...common} play={play} />; break;
     case 'recap': screen = <PlayRecap {...common} play={play} restart={() => { startPlay(); setStack([{ name: 'lobby' }]); }} />; break;
     default: screen = <HomeScreen {...common} />;
   }

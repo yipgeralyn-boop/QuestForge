@@ -124,6 +124,7 @@ const ICON_PATHS = {
   flame: <><path d="M12 3s4 3.5 4 8a4 4 0 01-8 0c0-1 .4-2 1-2.6C9 11 12 9 12 3z" /><path d="M12 21a3 3 0 003-3c0-2-3-3-3-3s-3 1-3 3a3 3 0 003 3z" /></>,
   refresh: <><path d="M4 12a8 8 0 0113.7-5.7L20 8M20 4v4h-4M20 12a8 8 0 01-13.7 5.7L4 16M4 20v-4h4" /></>,
   qr: <><rect x="4" y="4" width="6" height="6" rx="1" /><rect x="14" y="4" width="6" height="6" rx="1" /><rect x="4" y="14" width="6" height="6" rx="1" /><path d="M14 14h2v2M20 14v.01M18 18h2v2M14 20h.01" /></>,
+  search: <><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35" /></>,
 };
 
 export function Icon({ name, size = 22, stroke = 2, fill = 'none', style = {}, className }) {
@@ -146,56 +147,11 @@ export const ACTIVITY_META = {
 };
 
 export const SAMPLE_RACE = {
-  name: 'Downtown Discovery Dash',
-  tagline: 'A 90-minute city sprint for the whole team',
-  duration: 90,
-  teamCount: 5,
-  stops: [
-    {
-      id: 's1', name: 'Plaza Fountain', hint: 'Start line — by the big copper fountain', x: 16, y: 80,
-      activities: [{ type: 'gps', points: 50 }],
-    },
-    {
-      id: 's2', name: 'The Old Library', hint: 'Stone steps on Carver Street', x: 30, y: 56,
-      activities: [
-        { type: 'quiz', question: 'What year was the library founded? (on the plaque)', answer: '1898', points: 100 },
-      ],
-    },
-    {
-      id: 's3', name: 'Riverside Mural', hint: 'Under the train bridge', x: 50, y: 67,
-      activities: [
-        { type: 'photo', prompt: 'Get the whole team in front of the mural — most creative pose wins bonus points!', points: 150 },
-      ],
-    },
-    {
-      id: 's4', name: 'Market Square', hint: 'Centre of the farmers market', x: 62, y: 40,
-      activities: [
-        { type: 'choice', question: 'Which stall has sold here the longest?', options: ['Bramble & Bee Honey', "Pop's Pretzels", 'The Cheese Cart', 'Sunrise Flowers'], correctIndex: 0, points: 100 },
-      ],
-    },
-    {
-      id: 's5', name: 'The Clocktower', hint: 'Top of the hill on Vane Avenue', x: 80, y: 54,
-      activities: [
-        { type: 'riddle', riddle: 'I have hands but cannot clap, a face but never nap. What am I?', answer: 'a clock', points: 120 },
-      ],
-    },
-    {
-      id: 's6', name: 'Rooftop Garden', hint: 'Finish line — 8th floor terrace', x: 84, y: 20,
-      activities: [
-        { type: 'gps', points: 50 },
-        { type: 'photo', prompt: 'Victory team photo at the finish!', points: 100 },
-      ],
-    },
-  ],
+  name: '',
+  tagline: '',
+  duration: 60,
+  stops: [],
 };
-
-export const TEAMS = [
-  { id: 't1', name: 'Compass Crew', color: 'var(--qf-primary)', you: true, members: 4 },
-  { id: 't2', name: 'The Trailblazers', color: '#7C6CF6', members: 4 },
-  { id: 't3', name: 'Summit Squad', color: '#0FB5A4', members: 5 },
-  { id: 't4', name: 'Pathfinders', color: '#EC6FB0', members: 3 },
-  { id: 't5', name: 'North Stars', color: '#F2960F', members: 4 },
-];
 
 export function qfWord(t, which) {
   const base = (t && t.questWord) || 'quest';
