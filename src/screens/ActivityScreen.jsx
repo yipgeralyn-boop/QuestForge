@@ -24,136 +24,211 @@ function ActHeader({ stop, idx, total, onBack, m }) {
 function GpsActivity({ stop, onDone, points }) {
   const [status, setStatus] = useState('locating'); // locating | live | arrived | denied | nosignal
   const [dist, setDist] = useState(null);
+  const [accuracy, setAccuracy] = useState(null);
+  const [checkedIn, setCheckedIn] = useState(false);
   const watchId = useRef(null);
+  const smoothRef = useRef(null);
 
   useEffect(() => {
-    const hasCoords = stop && stop.lat != null && stop.lng != null;
+    const hasCoords = stop?.lat != null && stop?.lng != null;
 
     if (!hasCoords || !navigator.geolocation) {
       const tm = setTimeout(() => setStatus('arrived'), 2000);
       return () => clearTimeout(tm);
     }
 
+    // Show nosignal if no fix within 18s
+    const noFixTm = setTimeout(() => setStatus(s => s === 'locating' ? 'nosignal' : s), 18000);
+
     watchId.current = navigator.geolocation.watchPosition(
       pos => {
-        const m = Math.round(haversine(pos.coords.latitude, pos.coords.longitude, stop.lat, stop.lng));
+        clearTimeout(noFixTm);
+        const raw = haversine(pos.coords.latitude, pos.coords.longitude, stop.lat, stop.lng);
+        // Exponential moving average to smooth out GPS jitter
+        smoothRef.current = smoothRef.current == null ? raw : smoothRef.current * 0.65 + raw * 0.35;
+        const m = Math.round(smoothRef.current);
+        const acc = Math.round(pos.coords.accuracy || 0);
         setDist(m);
+        setAccuracy(acc);
         setStatus(m <= ARRIVE_RADIUS ? 'arrived' : 'live');
       },
       err => {
+        clearTimeout(noFixTm);
         setStatus(err.code === 1 ? 'denied' : 'nosignal');
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 3000 }
     );
 
-    return () => { if (watchId.current != null) navigator.geolocation.clearWatch(watchId.current); };
+    return () => { clearTimeout(noFixTm); if (watchId.current != null) navigator.geolocation.clearWatch(watchId.current); };
   }, []);
 
   const arrived = status === 'arrived';
+  const isLive = status === 'live';
 
-  const title = arrived ? 'You made it!'
+  // Tint changes as you approach: teal → amber → green
+  const tint = arrived ? '#22C55E' : dist != null && dist < 80 ? '#F59E0B' : 'var(--qf-secondary)';
+
+  // Distance display: km when far, m when close
+  const distText = dist == null ? null : dist >= 1000 ? `${(dist / 1000).toFixed(1)} km` : `${dist} m`;
+
+  // Radar pulses speed up as you get closer
+  const proximity = dist != null ? Math.min(1, Math.max(0, 1 - (dist - ARRIVE_RADIUS) / 400)) : 0;
+  const pulseSpeed = Math.max(0.9, 2.4 - proximity * 1.5);
+
+  const title = arrived ? "You're here!"
     : status === 'denied' ? 'Location blocked'
     : status === 'nosignal' ? 'Weak GPS signal'
+    : dist != null && dist < 50 ? 'Almost there!'
+    : dist != null && dist < 200 ? 'Getting closer…'
+    : dist != null ? 'Head to the stop'
     : 'Getting your location…';
 
-  const subtitle = arrived ? "You're within range. Check in to claim your points."
+  const subtitle = arrived ? "You're within range — tap to check in."
     : status === 'denied' ? 'Enable location in your browser settings, then reload.'
     : status === 'nosignal' ? 'Move to an open area for a better signal.'
-    : (stop && stop.lat) ? `Keep moving — unlocks within ${ARRIVE_RADIUS}m.`
-    : 'Hold tight while we lock onto your GPS signal…';
+    : dist != null ? `Unlocks within ${ARRIVE_RADIUS}m of the stop`
+    : 'Hold tight while we lock onto your GPS…';
 
   return (
     <ScreenScroll>
       <div style={{ padding: '14px 22px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
         <div style={{ position: 'relative', width: 200, height: 200, margin: '18px 0 6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {[0, 1, 2].map(i => (
-            <span key={i} style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '2px solid var(--qf-secondary)', opacity: 0, animation: arrived ? 'none' : `qfRadar 2.4s ${i * 0.8}s ease-out infinite` }} />
+            <span key={i} style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: `2px solid ${tint}`, opacity: 0, animation: arrived ? 'none' : `qfRadar ${pulseSpeed}s ${i * (pulseSpeed / 3)}s ease-out infinite`, transition: 'border-color .5s' }} />
           ))}
-          <div style={{ width: 92, height: 92, borderRadius: '50%', background: arrived ? 'var(--qf-secondary)' : 'var(--qf-surface)', color: arrived ? '#fff' : 'var(--qf-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 10px 26px -10px var(--qf-shadow)', border: '1px solid var(--qf-line)', transition: 'all .4s' }}>
+          <div style={{ width: 92, height: 92, borderRadius: '50%', background: arrived ? tint : `color-mix(in srgb, ${tint} 14%, var(--qf-surface))`, color: arrived ? '#fff' : tint, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 10px 26px -10px color-mix(in srgb, ${tint} 50%, transparent)`, border: `2px solid color-mix(in srgb, ${tint} 35%, var(--qf-line))`, transition: 'all .5s' }}>
             <Icon name={arrived ? 'check' : status === 'denied' ? 'close' : 'pin'} size={44} stroke={2.4} />
           </div>
         </div>
 
-        {status === 'live' && dist !== null && (
-          <div style={{ marginBottom: 10, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 18px', borderRadius: 99, background: 'color-mix(in srgb, var(--qf-secondary) 12%, var(--qf-surface))', border: '1px solid color-mix(in srgb, var(--qf-secondary) 30%, var(--qf-line))', color: 'var(--qf-secondary)', fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 22 }}>
-            <Icon name="route" size={20} stroke={2.4} /> {dist}m away
+        {isLive && distText && (
+          <div style={{ marginBottom: 10, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 18px', borderRadius: 99, background: `color-mix(in srgb, ${tint} 12%, var(--qf-surface))`, border: `1px solid color-mix(in srgb, ${tint} 30%, var(--qf-line))`, color: tint, fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 22, transition: 'all .5s' }}>
+            <Icon name="route" size={20} stroke={2.4} /> {distText}
           </div>
         )}
 
         <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 23, color: 'var(--qf-ink)', marginTop: 8 }}>{title}</div>
         <div style={{ fontFamily: 'var(--qf-body)', fontSize: 14.5, color: 'var(--qf-muted)', maxWidth: 260, marginTop: 6 }}>{subtitle}</div>
+
+        {isLive && accuracy != null && (
+          <div style={{ marginTop: 14, display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 99, background: 'var(--qf-surface-2)', fontFamily: 'var(--qf-body)', fontSize: 12, color: accuracy > 50 ? '#E0564B' : 'var(--qf-muted)' }}>
+            <Icon name="target" size={13} stroke={2.2} style={{ flexShrink: 0 }} />
+            GPS accuracy ±{accuracy}m{accuracy > 50 ? ' — move to open area' : ''}
+          </div>
+        )}
       </div>
       <FooterBar>
-        <Btn full style={{ background: 'var(--qf-secondary)', color: '#fff', opacity: arrived ? 1 : 0.5 }} disabled={!arrived} icon="check" onClick={() => onDone(points, true)}>
-          Check in · +{points}
+        <Btn full
+          style={{ background: checkedIn ? '#16A34A' : arrived ? '#22C55E' : 'var(--qf-surface-2)', color: arrived ? '#fff' : 'var(--qf-muted)', transition: 'all .4s' }}
+          disabled={!arrived || checkedIn}
+          icon={checkedIn ? 'star' : 'check'}
+          onClick={() => { setCheckedIn(true); setTimeout(() => onDone(points, true), 700); }}>
+          {checkedIn ? 'Checked in! +' + points + ' pts' : 'Check in · +' + points}
         </Btn>
       </FooterBar>
     </ScreenScroll>
   );
 }
 
-function PhotoActivity({ stop, prompt, points, onDone }) {
-  const [phase, setPhase] = useState('aim');
-  const slotId = 'qf-photo-' + stop.id;
+function PhotoActivity({ stop, prompt, points, onDone, onSubmit, onBackToMap }) {
+  const [phase, setPhase] = useState('aim'); // aim | review | submitted
+  const [photoUrl, setPhotoUrl] = useState(null);
+  const [inputKey, setInputKey] = useState(0);
 
-  function shoot() {
-    setPhase('flash');
-    setTimeout(() => setPhase('review'), 320);
+  function handleFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => { setPhotoUrl(ev.target.result); setPhase('review'); };
+    reader.readAsDataURL(file);
+    setInputKey(k => k + 1);
   }
 
-  return (
-    <ScreenScroll style={{ background: phase === 'review' ? 'var(--qf-bg)' : '#0e0e14' }}>
-      {phase !== 'review' ? (
-        <div style={{ padding: '6px 18px 18px' }}>
-          <div style={{ position: 'relative', borderRadius: 22, overflow: 'hidden', aspectRatio: '3/4', background: 'linear-gradient(160deg,#2b3550,#46506e 55%,#6d7796)' }}>
-            <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(120% 80% at 50% 120%, rgba(255,210,120,.35), transparent 60%)' }} />
-            <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '38%', background: 'linear-gradient(#5a4a39,#3c2f24)' }} />
-            <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(255,255,255,.18) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.18) 1px,transparent 1px)', backgroundSize: '33.33% 33.33%' }} />
-            {[['8px','8px','tl'],['8px','auto','tr'],['auto','8px','bl'],['auto','auto','br']].map(([t,r,k]) => (
-              <div key={k} style={{
-                position: 'absolute',
-                top: t === '8px' ? 14 : 'auto', bottom: t === 'auto' ? 14 : 'auto',
-                left: r === '8px' ? 14 : 'auto', right: r === 'auto' ? 14 : 'auto',
-                width: 26, height: 26,
-                borderTop: t === '8px' ? '3px solid #fff' : 'none',
-                borderBottom: t === 'auto' ? '3px solid #fff' : 'none',
-                borderLeft: r === '8px' ? '3px solid #fff' : 'none',
-                borderRight: r === 'auto' ? '3px solid #fff' : 'none',
-                borderRadius: 4, opacity: 0.85,
-              }} />
-            ))}
-            <div style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 99, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(6px)', color: '#fff', fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 12.5 }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#FF5C5C' }} /> CHALLENGE
-            </div>
-            {phase === 'flash' && <div style={{ position: 'absolute', inset: 0, background: '#fff', animation: 'qfFlash .32s ease' }} />}
+  function submit() {
+    onSubmit({ stopId: stop.id, stopName: stop.name, prompt, points, photoUrl });
+    setPhase('submitted');
+  }
+
+  // iOS fix: input embedded inside label (not htmlFor), positioned off-screen (not display:none),
+  // and re-keyed after each capture so it's a fresh DOM element next time
+  const CameraInput = () => (
+    <input key={inputKey} type="file" accept="image/*" capture="environment"
+      style={{ position: 'absolute', left: '-9999px', top: 0, opacity: 0, width: 1, height: 1 }}
+      onChange={handleFile} />
+  );
+
+  if (phase === 'submitted') {
+    return (
+      <ScreenScroll>
+        <div style={{ padding: '48px 28px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+          <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'color-mix(in srgb, var(--qf-accent) 16%, var(--qf-surface))', color: 'var(--qf-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
+            <Icon name="clock" size={38} stroke={2} />
           </div>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginTop: 16, padding: 14, borderRadius: 16, background: 'rgba(255,255,255,0.07)' }}>
-            <div style={{ color: 'var(--qf-accent)', flexShrink: 0 }}><Icon name="camera" size={20} stroke={2.3} /></div>
-            <div style={{ fontFamily: 'var(--qf-body)', fontSize: 14.5, color: '#fff', lineHeight: 1.4 }}>{prompt}</div>
+          <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 22, color: 'var(--qf-ink)' }}>Photo sent!</div>
+          <div style={{ fontFamily: 'var(--qf-body)', fontSize: 14.5, color: 'var(--qf-muted)', marginTop: 8, maxWidth: 260, lineHeight: 1.5 }}>
+            Waiting for the organiser to approve. Keep going — tackle other stops while you wait.
           </div>
-          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 22 }}>
-            <button onClick={shoot} aria-label="Take photo" style={{ width: 76, height: 76, borderRadius: '50%', border: '5px solid rgba(255,255,255,0.85)', background: 'var(--qf-primary)', cursor: 'pointer', boxShadow: '0 0 0 4px rgba(255,255,255,0.15)', WebkitTapHighlightColor: 'transparent' }} />
-          </div>
-          <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.6)', fontFamily: 'var(--qf-body)', fontSize: 12.5, marginTop: 12 }}>Tap the shutter to capture</div>
         </div>
-      ) : (
-        <div style={{ padding: '14px 22px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 22, color: 'var(--qf-ink)', alignSelf: 'flex-start', marginBottom: 4 }}>Nice shot!</div>
-          <div style={{ fontFamily: 'var(--qf-body)', fontSize: 13.5, color: 'var(--qf-muted)', alignSelf: 'flex-start', marginBottom: 16 }}>Drop your real team photo on the frame, or keep this one.</div>
-          <div style={{ background: '#fff', padding: '12px 12px 46px', borderRadius: 6, boxShadow: '0 14px 30px -12px rgba(0,0,0,0.35)', transform: 'rotate(-2deg)', position: 'relative' }}>
-            <div style={{ width: 240, height: 240, background: 'linear-gradient(135deg, #f0f0f0, #e0e0e0)', borderRadius: 3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ textAlign: 'center', color: '#aaa', fontFamily: 'var(--qf-body)', fontSize: 13 }}>
-                <Icon name="image" size={32} stroke={1.5} style={{ margin: '0 auto 8px', display: 'block', color: '#ccc' }} />
-                Team photo
+        <FooterBar>
+          <Btn full variant="primary" iconRight="arrow" onClick={onBackToMap}>Continue to other stops</Btn>
+        </FooterBar>
+      </ScreenScroll>
+    );
+  }
+
+  if (phase === 'aim') {
+    return (
+      <ScreenScroll style={{ background: '#0e0e14' }}>
+        <label style={{ display: 'block', cursor: 'pointer', position: 'relative' }}>
+          <CameraInput />
+          <div style={{ padding: '6px 18px 0' }}>
+            <div style={{ position: 'relative', borderRadius: 22, overflow: 'hidden', aspectRatio: '3/4', background: 'linear-gradient(160deg,#2b3550,#46506e 55%,#6d7796)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(120% 80% at 50% 120%, rgba(255,210,120,.35), transparent 60%)' }} />
+              <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '38%', background: 'linear-gradient(#5a4a39,#3c2f24)' }} />
+              <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(255,255,255,.18) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.18) 1px,transparent 1px)', backgroundSize: '33.33% 33.33%' }} />
+              {[['tl','8px','8px'],['tr','8px',null],['bl',null,'8px'],['br',null,null]].map(([k,t,l]) => (
+                <div key={k} style={{ position: 'absolute', top: t ? 14 : 'auto', bottom: !t ? 14 : 'auto', left: l ? 14 : 'auto', right: !l ? 14 : 'auto', width: 26, height: 26, borderTop: t ? '3px solid #fff' : 'none', borderBottom: !t ? '3px solid #fff' : 'none', borderLeft: l ? '3px solid #fff' : 'none', borderRight: !l ? '3px solid #fff' : 'none', borderRadius: 4, opacity: 0.85 }} />
+              ))}
+              <div style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 99, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(6px)', color: '#fff', fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 12.5, whiteSpace: 'nowrap' }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#FF5C5C' }} /> CHALLENGE
+              </div>
+              <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontFamily: 'var(--qf-body)', fontSize: 13 }}>
+                <Icon name="camera" size={40} stroke={1.5} style={{ margin: '0 auto 8px', display: 'block', color: 'rgba(255,255,255,0.4)' }} />
+                Tap to open camera
               </div>
             </div>
           </div>
-          <div style={{ marginTop: 28, width: '100%' }}>
-            <Btn full variant="primary" icon="check" onClick={() => onDone(points, true)}>Use this photo · +{points}</Btn>
-            <button onClick={() => setPhase('aim')} style={{ width: '100%', marginTop: 10, padding: 12, borderRadius: 14, border: 'none', background: 'transparent', color: 'var(--qf-muted)', fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 15, cursor: 'pointer' }}>Retake</button>
+          <div style={{ padding: '0 18px 18px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginTop: 16, padding: 14, borderRadius: 16, background: 'rgba(255,255,255,0.07)' }}>
+              <div style={{ color: 'var(--qf-accent)', flexShrink: 0 }}><Icon name="camera" size={20} stroke={2.3} /></div>
+              <div style={{ fontFamily: 'var(--qf-body)', fontSize: 14.5, color: '#fff', lineHeight: 1.4 }}>{prompt}</div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 22 }}>
+              <div style={{ width: 76, height: 76, borderRadius: '50%', border: '5px solid rgba(255,255,255,0.85)', background: 'var(--qf-primary)', boxShadow: '0 0 0 4px rgba(255,255,255,0.15)' }} />
+            </div>
+            <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.6)', fontFamily: 'var(--qf-body)', fontSize: 12.5, marginTop: 12 }}>Tap the shutter to capture</div>
           </div>
+        </label>
+      </ScreenScroll>
+    );
+  }
+
+  return (
+    <ScreenScroll>
+      <div style={{ padding: '14px 22px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 22, color: 'var(--qf-ink)', alignSelf: 'flex-start', marginBottom: 4 }}>Nice shot!</div>
+        <div style={{ fontFamily: 'var(--qf-body)', fontSize: 13.5, color: 'var(--qf-muted)', alignSelf: 'flex-start', marginBottom: 16 }}>Happy with it? Submit for review.</div>
+        <div style={{ background: '#fff', padding: '12px 12px 46px', borderRadius: 6, boxShadow: '0 14px 30px -12px rgba(0,0,0,0.35)', transform: 'rotate(-2deg)' }}>
+          <img src={photoUrl} style={{ width: 240, height: 240, objectFit: 'cover', borderRadius: 3, display: 'block' }} />
         </div>
-      )}
+        <div style={{ marginTop: 28, width: '100%' }}>
+          <Btn full variant="primary" icon="check" onClick={submit}>Submit for review · +{points} pts</Btn>
+          <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', width: '100%', marginTop: 10, padding: '12px 0', borderRadius: 14, cursor: 'pointer', color: 'var(--qf-muted)', fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 15 }}>
+            <CameraInput />
+            Retake
+          </label>
+        </div>
+      </div>
     </ScreenScroll>
   );
 }
@@ -239,7 +314,7 @@ function ChoiceActivity({ question, options, correctIndex, points, onDone }) {
   );
 }
 
-export default function PlayActivity({ stop, onStopDone, onBack }) {
+export default function PlayActivity({ stop, onStopDone, onBack, onPhotoSubmit }) {
   const [i, setI] = useState(0);
   const earned = useRef(0);
   const acts = stop.activities;
@@ -255,8 +330,14 @@ export default function PlayActivity({ stop, onStopDone, onBack }) {
   return (
     <>
       <ActHeader stop={stop} idx={i} total={acts.length} onBack={onBack} m={m} />
+      {a.clue && (
+        <div style={{ margin: '0 18px 4px', padding: '10px 14px', borderRadius: 14, background: 'color-mix(in srgb, var(--qf-accent) 14%, var(--qf-surface))', border: '1px solid color-mix(in srgb, var(--qf-accent) 30%, var(--qf-line))', display: 'flex', alignItems: 'flex-start', gap: 9 }}>
+          <Icon name="sparkle" size={15} stroke={2.3} style={{ color: 'var(--qf-accent)', flexShrink: 0, marginTop: 2 }} />
+          <span style={{ fontFamily: 'var(--qf-body)', fontSize: 13.5, color: 'var(--qf-ink)', lineHeight: 1.4 }}>{a.clue}</span>
+        </div>
+      )}
       {a.type === 'gps' && <GpsActivity key={i} stop={stop} points={a.points} onDone={next} />}
-      {a.type === 'photo' && <PhotoActivity key={i} stop={stop} prompt={a.prompt} points={a.points} onDone={next} />}
+      {a.type === 'photo' && <PhotoActivity key={i} stop={stop} prompt={a.prompt} points={a.points} onDone={next} onSubmit={onPhotoSubmit || (() => {})} onBackToMap={onBack} />}
       {a.type === 'quiz' && <TextActivity key={i} kind="quiz" question={a.question} answer={a.answer} points={a.points} onDone={next} />}
       {a.type === 'riddle' && <TextActivity key={i} kind="riddle" question={a.riddle} answer={a.answer} points={a.points} onDone={next} />}
       {a.type === 'choice' && <ChoiceActivity key={i} question={a.question} options={a.options} correctIndex={a.correctIndex} points={a.points} onDone={next} />}
