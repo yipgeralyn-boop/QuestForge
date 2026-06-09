@@ -203,6 +203,9 @@ export function OrgStop({ race, setRace, go, back, t, mapStyle, stopId }) {
                     <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 15, color: 'var(--qf-ink)' }}>{m.label} <span style={{ color: 'var(--qf-muted)', fontWeight: 500, fontSize: 13 }}>· {a.points} pts</span></div>
                     <div style={{ fontFamily: 'var(--qf-body)', fontSize: 12.5, color: 'var(--qf-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{actSummary(a)}</div>
                   </div>
+                  <button onClick={() => go({ name: 'orgAdd', stopId, editIndex: k })} style={{ ...iconBtn, width: 32, height: 32, boxShadow: 'none', background: 'transparent', color: 'var(--qf-primary)' }}>
+                    <Icon name="edit" size={16} stroke={2.4} />
+                  </button>
                   <button onClick={() => delActivity(k)} style={{ ...iconBtn, width: 32, height: 32, boxShadow: 'none', background: 'transparent', color: 'var(--qf-muted)' }}>
                     <Icon name="close" size={16} stroke={2.4} />
                   </button>
@@ -221,10 +224,20 @@ export function OrgStop({ race, setRace, go, back, t, mapStyle, stopId }) {
   );
 }
 
-export function OrgAddActivity({ race, setRace, back, stopId, t }) {
-  const [type, setType] = useState(null);
-  const [cfg, setCfg] = useState({ points: 100, options: ['', '', '', ''], correctIndex: 0 });
+export function OrgAddActivity({ race, setRace, back, stopId, t, editIndex }) {
   const stop = race.stops.find(s => s.id === stopId);
+  const existing = editIndex != null ? stop?.activities[editIndex] : null;
+  const [type, setType] = useState(existing?.type ?? null);
+  const [cfg, setCfg] = useState(() => existing ? {
+    points: existing.points || 100,
+    prompt: existing.prompt || '',
+    question: existing.question || '',
+    answer: existing.answer || '',
+    riddle: existing.riddle || '',
+    options: existing.options ? [...existing.options, '', '', ''].slice(0, 4) : ['', '', '', ''],
+    correctIndex: existing.correctIndex ?? 0,
+    clue: existing.clue || '',
+  } : { points: 100, options: ['', '', '', ''], correctIndex: 0 });
 
   function commit() {
     let a = { type, points: cfg.points };
@@ -233,14 +246,20 @@ export function OrgAddActivity({ race, setRace, back, stopId, t }) {
     if (type === 'choice') { a.question = cfg.question || 'Your question'; a.options = cfg.options.filter(Boolean); a.correctIndex = cfg.correctIndex; }
     if (type === 'riddle') { a.riddle = cfg.riddle || 'Your riddle'; a.answer = cfg.answer || ''; }
     if (cfg.clue) a.clue = cfg.clue;
-    setRace({ ...race, stops: race.stops.map(s => s.id === stopId ? { ...s, activities: [...s.activities, a] } : s) });
+    setRace({ ...race, stops: race.stops.map(s => {
+      if (s.id !== stopId) return s;
+      if (editIndex != null) {
+        const acts = [...s.activities]; acts[editIndex] = a; return { ...s, activities: acts };
+      }
+      return { ...s, activities: [...s.activities, a] };
+    })});
     back();
   }
   const set = (k, v) => setCfg(c => ({ ...c, [k]: v }));
 
   return (
     <>
-      <TopBar sub={stop ? stop.name : ''} title="Add activity" onBack={back} />
+      <TopBar sub={stop ? stop.name : ''} title={editIndex != null ? 'Edit activity' : 'Add activity'} onBack={back} />
       <ScreenScroll>
         <div style={{ padding: '0 18px 8px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -303,12 +322,12 @@ export function OrgAddActivity({ race, setRace, back, stopId, t }) {
           )}
         </div>
       </ScreenScroll>
-      <FooterBar><Btn full disabled={!type} variant="primary" icon="plus" onClick={commit}>Add to stop</Btn></FooterBar>
+      <FooterBar><Btn full disabled={!type} variant="primary" icon={editIndex != null ? 'check' : 'plus'} onClick={commit}>{editIndex != null ? 'Save changes' : 'Add to stop'}</Btn></FooterBar>
     </>
   );
 }
 
-export function OrgPublish({ race, go, back, t, mapStyle }) {
+export function OrgPublish({ race, setRace, go, back, t, mapStyle }) {
   const [copied, setCopied] = useState(false);
   const code = 'QF-' + (race.name.replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'RUN') + '-42';
 
@@ -356,18 +375,24 @@ export function OrgPublish({ race, go, back, t, mapStyle }) {
       </ScreenScroll>
       <FooterBar blur>
         <Btn variant="soft" onClick={back} style={{ flex: '0 0 auto' }} icon="edit"> </Btn>
-        <Btn full variant="primary" icon="play" onClick={() => go({ name: 'orgDash' })}>Launch quest</Btn>
+        <Btn full variant="primary" icon="play" onClick={() => { setRace(r => ({ ...r, publishedCode: code })); go({ name: 'orgDash' }); }}>Launch quest</Btn>
       </FooterBar>
     </>
   );
 }
 
-export function OrgDashboard({ race, setRace, go, back, mapStyle, play }) {
+export function OrgDashboard({ race, setRace, go, back, mapStyle, play, setPlay }) {
   const total = race.stops.length;
   const pending = race.pendingPhotos || [];
 
   function approvePhoto(id) {
-    setRace(r => ({ ...r, pendingPhotos: (r.pendingPhotos || []).filter(p => p.id !== id) }));
+    const photo = (race.pendingPhotos || []).find(p => p.id === id);
+    setRace(r => ({
+      ...r,
+      pendingPhotos: (r.pendingPhotos || []).filter(p => p.id !== id),
+      approvedPhotos: [...(r.approvedPhotos || []), photo],
+    }));
+    if (photo?.points && setPlay) setPlay(p => ({ ...p, score: (p.score || 0) + photo.points }));
   }
   function rejectPhoto(id) {
     setRace(r => ({ ...r, pendingPhotos: (r.pendingPhotos || []).filter(p => p.id !== id) }));

@@ -43,7 +43,13 @@ const DEVICE_W = 402, DEVICE_H = 874;
 
 function QFApp() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
-  const [race, setRace] = useState(freshRace);
+  const [race, setRace] = useState(() => {
+    try {
+      const saved = localStorage.getItem('qf-race');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return freshRace();
+  });
   const [stack, setStack] = useState([{ name: 'home' }]);
   const cur = stack[stack.length - 1];
 
@@ -60,6 +66,10 @@ function QFApp() {
     el.style.setProperty('--qf-display', fonts.display);
     el.style.setProperty('--qf-body', fonts.body);
   }, [t.theme, t.font]);
+
+  useEffect(() => {
+    try { localStorage.setItem('qf-race', JSON.stringify(race)); } catch {}
+  }, [race]);
 
   function go(scr) {
     if (scr.name === 'home') { setStack([{ name: 'home' }]); return; }
@@ -94,9 +104,9 @@ function QFApp() {
     case 'orgBuilder': screen = <OrgBuilder {...common} />; break;
     case 'orgDetails': screen = <OrgDetails {...common} />; break;
     case 'orgStop': screen = <OrgStop {...common} stopId={cur.stopId} />; break;
-    case 'orgAdd': screen = <OrgAddActivity {...common} stopId={cur.stopId} />; break;
+    case 'orgAdd': screen = <OrgAddActivity {...common} stopId={cur.stopId} editIndex={cur.editIndex} />; break;
     case 'orgPublish': screen = <OrgPublish {...common} />; break;
-    case 'orgDash': screen = <OrgDashboard {...common} play={play} />; break;
+    case 'orgDash': screen = <OrgDashboard {...common} play={play} setPlay={setPlay} />; break;
     case 'join': screen = <PlayJoin {...common} />; break;
     case 'teamSetup': screen = <PlayTeamSetup {...common} setTeam={(teamName, roster) => setPlay(p => ({ ...p, teamName, roster }))} />; break;
     case 'lobby': screen = <PlayLobby {...common} startPlay={startPlay} play={play} />; break;

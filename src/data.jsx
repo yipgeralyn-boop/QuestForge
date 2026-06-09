@@ -146,10 +146,38 @@ export const ACTIVITY_META = {
 };
 
 export const SAMPLE_RACE = {
-  name: '',
-  tagline: '',
+  name: 'City Explorers',
+  tagline: 'Discover hidden gems around the neighbourhood',
   duration: 60,
-  stops: [],
+  stops: [
+    {
+      id: 's1', name: 'The Old Town Square',
+      hint: 'Where the weekly market used to be held',
+      x: 22, y: 65,
+      activities: [
+        { type: 'quiz', question: 'What year was this clock tower first built?', answer: '1892', points: 100, clue: 'Look for the plaque on the north wall' },
+        { type: 'photo', prompt: 'Whole team doing a superhero pose in front of the fountain', points: 150 }
+      ]
+    },
+    {
+      id: 's2', name: 'The Hidden Garden',
+      hint: 'Behind the red brick wall on Maple Street',
+      x: 52, y: 42,
+      activities: [
+        { type: 'riddle', riddle: 'I have hands but cannot clap, and a face but no eyes to see. What am I?', answer: 'clock', points: 100 },
+        { type: 'choice', question: 'Which flower is the symbol of this city?', options: ['Rose', 'Lotus', 'Tulip', 'Orchid'], correctIndex: 2, points: 100 }
+      ]
+    },
+    {
+      id: 's3', name: 'Harbour View Point',
+      hint: 'The best sunset spot — highest public viewing area',
+      x: 74, y: 22,
+      activities: [
+        { type: 'photo', prompt: 'Capture the full harbour view — make sure the water is in shot!', points: 200 },
+        { type: 'quiz', question: 'How many bridges can you count from here?', answer: '3', points: 100, clue: 'Face towards the bay' }
+      ]
+    }
+  ]
 };
 
 export function qfWord(t, which) {

@@ -7,20 +7,32 @@ const stopPoints = (st) => st.activities.reduce((a, x) => a + (x.points || 0), 0
 const totalPoints = (race) => race.stops.reduce((a, st) => a + stopPoints(st), 0);
 const pointsThrough = (race, idx) => race.stops.slice(0, idx).reduce((a, st) => a + stopPoints(st), 0);
 
-export function qfRank() { return 1; }
+export function qfRank(race, play) {
+  if (!race?.stops || !play) return 1;
+  const total = race.stops.reduce((a, s) => a + s.activities.reduce((b, x) => b + (x.points || 0), 0), 0);
+  if (!total) return 1;
+  const rivals = [Math.round(total * 0.55), Math.round(total * 0.70), Math.round(total * 0.38)];
+  return 1 + rivals.filter(r => r > (play.score || 0)).length;
+}
 
 function ordinal(n) {
   const v = n % 100;
   return n + (['th','st','nd','rd'][(v - 20) % 10] || ['th','st','nd','rd'][v] || 'th');
 }
 
-export function PlayJoin({ go, back, t }) {
-  const [code, setCode] = useState('');
+export function PlayJoin({ go, back, t, race }) {
+  const [code, setCode] = useState(race?.publishedCode || '');
   const [error, setError] = useState(false);
 
   function tryJoin() {
-    if (code.trim().length >= 3) go({ name: 'teamSetup' });
-    else { setError(true); setTimeout(() => setError(false), 800); }
+    const trimmed = code.trim();
+    if (race?.publishedCode) {
+      if (trimmed.toLowerCase() === race.publishedCode.toLowerCase()) go({ name: 'teamSetup' });
+      else { setError(true); setTimeout(() => setError(false), 800); }
+    } else {
+      if (trimmed.length >= 3) go({ name: 'teamSetup' });
+      else { setError(true); setTimeout(() => setError(false), 800); }
+    }
   }
 
   return (
@@ -219,6 +231,7 @@ export function PlayMap({ race, play, go, back, t, mapStyle }) {
   const total = race.stops.length;
   const allDone = play.completedIds.length >= total;
   const rank = qfRank(race, play);
+  const [confirmQuit, setConfirmQuit] = useState(false);
 
   const [secsLeft, setSecsLeft] = useState(() => {
     if (!play.startTime) return race.duration * 60;
@@ -261,9 +274,9 @@ export function PlayMap({ race, play, go, back, t, mapStyle }) {
   }
 
   return (
-    <>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
       <div style={{ paddingTop: 52, padding: '52px 18px 10px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={back} style={{ width: 38, height: 38, borderRadius: 12, border: 'none', cursor: 'pointer', flexShrink: 0, background: 'var(--qf-surface)', color: 'var(--qf-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px var(--qf-shadow)', WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}>
+        <button onClick={() => setConfirmQuit(true)} style={{ width: 38, height: 38, borderRadius: 12, border: 'none', cursor: 'pointer', flexShrink: 0, background: 'var(--qf-surface)', color: 'var(--qf-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px var(--qf-shadow)', WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}>
           <Icon name="chevronL" size={20} stroke={2.6} />
         </button>
         <div style={{ flex: 1 }}>
@@ -345,7 +358,20 @@ export function PlayMap({ race, play, go, back, t, mapStyle }) {
           </div>
         </div>
       </ScreenScroll>
-    </>
+
+      {confirmQuit && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-end' }}>
+          <div style={{ width: '100%', background: 'var(--qf-bg)', borderRadius: '24px 24px 0 0', padding: '22px 18px 34px' }}>
+            <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 20, color: 'var(--qf-ink)', marginBottom: 6 }}>Leave the quest?</div>
+            <div style={{ fontFamily: 'var(--qf-body)', fontSize: 14, color: 'var(--qf-muted)', marginBottom: 20 }}>Your progress will be lost.</div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <Btn full variant="soft" onClick={() => setConfirmQuit(false)}>Keep playing</Btn>
+              <Btn full variant="outline" onClick={() => go({ name: 'home' })}>Leave</Btn>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -390,6 +416,8 @@ export function PlayRecap({ race, play, go, mapStyle, restart }) {
   const [burst, setBurst] = useState(false);
   useEffect(() => { const tm = setTimeout(() => setBurst(true), 250); return () => clearTimeout(tm); }, []);
   const photoStops = race.stops.filter(s => s.activities.some(a => a.type === 'photo'));
+  const approvedPhotos = race.approvedPhotos || [];
+  const pendingPhotos = race.pendingPhotos || [];
 
   return (
     <>
@@ -420,14 +448,23 @@ export function PlayRecap({ race, play, go, mapStyle, restart }) {
             <Chip icon="share">Share</Chip>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            {photoStops.map((s, i) => (
-              <div key={s.id} style={{ background: '#fff', padding: '8px 8px 26px', borderRadius: 5, boxShadow: '0 8px 20px -12px rgba(0,0,0,0.3)', transform: `rotate(${i % 2 ? 1.6 : -1.6}deg)` }}>
-                <div style={{ width: '100%', aspectRatio: '1', borderRadius: 3, background: 'linear-gradient(135deg, #f0f0f0, #e0e0e0)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name="image" size={28} stroke={1.5} style={{ color: '#ccc' }} />
+            {photoStops.map((s, i) => {
+              const photo = approvedPhotos.find(p => p.stopId === s.id) || pendingPhotos.find(p => p.stopId === s.id);
+              const isPending = photo && !approvedPhotos.find(p => p.stopId === s.id);
+              return (
+                <div key={s.id} style={{ background: '#fff', padding: '8px 8px 26px', borderRadius: 5, boxShadow: '0 8px 20px -12px rgba(0,0,0,0.3)', transform: `rotate(${i % 2 ? 1.6 : -1.6}deg)`, position: 'relative' }}>
+                  <div style={{ width: '100%', aspectRatio: '1', borderRadius: 3, background: 'linear-gradient(135deg, #f0f0f0, #e0e0e0)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                    {photo?.photoUrl
+                      ? <img src={photo.photoUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      : <Icon name="image" size={28} stroke={1.5} style={{ color: '#ccc' }} />}
+                  </div>
+                  {isPending && (
+                    <div style={{ position: 'absolute', top: 12, right: 8, background: '#F59E0B', color: '#fff', fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 10, padding: '2px 6px', borderRadius: 6, letterSpacing: 0.5 }}>PENDING</div>
+                  )}
+                  <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 12.5, color: 'var(--qf-ink)', marginTop: 7, textAlign: 'center' }}>{s.name}</div>
                 </div>
-                <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 12.5, color: 'var(--qf-ink)', marginTop: 7, textAlign: 'center' }}>{s.name}</div>
-              </div>
-            ))}
+              );
+            })}
             {photoStops.length === 0 && (
               <div style={{ gridColumn: '1/-1', padding: 20, borderRadius: 16, background: 'var(--qf-surface-2)', textAlign: 'center', fontFamily: 'var(--qf-body)', fontSize: 13.5, color: 'var(--qf-muted)' }}>No photo challenges in this quest.</div>
             )}
