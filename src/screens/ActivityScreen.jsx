@@ -1,132 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { Icon, ACTIVITY_META } from '../data.jsx';
 import { Btn, TopBar, ScreenScroll, FooterBar } from '../components/UI.jsx';
 
 const norm = (s) => (s || '').trim().toLowerCase().replace(/^(a|an|the)\s+/, '').replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ');
 
-const ARRIVE_RADIUS = 30;
-
-function haversine(lat1, lng1, lat2, lng2) {
-  const R = 6371000;
-  const toRad = d => d * Math.PI / 180;
-  const dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
 function ActHeader({ stop, idx, total, onBack, m }) {
   return (
     <TopBar sub={stop.name} title={m.label} onBack={onBack}
       action={total > 1 ? <div style={{ fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 12.5, color: 'var(--qf-muted)', padding: '6px 11px', borderRadius: 99, background: 'var(--qf-surface-2)' }}>{idx + 1}/{total}</div> : null} />
-  );
-}
-
-function GpsActivity({ stop, onDone, points }) {
-  const [status, setStatus] = useState('locating'); // locating | live | arrived | denied | nosignal
-  const [dist, setDist] = useState(null);
-  const [accuracy, setAccuracy] = useState(null);
-  const [checkedIn, setCheckedIn] = useState(false);
-  const watchId = useRef(null);
-  const smoothRef = useRef(null);
-
-  useEffect(() => {
-    const hasCoords = stop?.lat != null && stop?.lng != null;
-
-    if (!hasCoords || !navigator.geolocation) {
-      const tm = setTimeout(() => setStatus('arrived'), 2000);
-      return () => clearTimeout(tm);
-    }
-
-    // Show nosignal if no fix within 18s
-    const noFixTm = setTimeout(() => setStatus(s => s === 'locating' ? 'nosignal' : s), 18000);
-
-    watchId.current = navigator.geolocation.watchPosition(
-      pos => {
-        clearTimeout(noFixTm);
-        const raw = haversine(pos.coords.latitude, pos.coords.longitude, stop.lat, stop.lng);
-        // Exponential moving average to smooth out GPS jitter
-        smoothRef.current = smoothRef.current == null ? raw : smoothRef.current * 0.65 + raw * 0.35;
-        const m = Math.round(smoothRef.current);
-        const acc = Math.round(pos.coords.accuracy || 0);
-        setDist(m);
-        setAccuracy(acc);
-        setStatus(m <= ARRIVE_RADIUS ? 'arrived' : 'live');
-      },
-      err => {
-        clearTimeout(noFixTm);
-        setStatus(err.code === 1 ? 'denied' : 'nosignal');
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 3000 }
-    );
-
-    return () => { clearTimeout(noFixTm); if (watchId.current != null) navigator.geolocation.clearWatch(watchId.current); };
-  }, []);
-
-  const arrived = status === 'arrived';
-  const isLive = status === 'live';
-
-  // Tint changes as you approach: teal → amber → green
-  const tint = arrived ? '#22C55E' : dist != null && dist < 80 ? '#F59E0B' : 'var(--qf-secondary)';
-
-  // Distance display: km when far, m when close
-  const distText = dist == null ? null : dist >= 1000 ? `${(dist / 1000).toFixed(1)} km` : `${dist} m`;
-
-  // Radar pulses speed up as you get closer
-  const proximity = dist != null ? Math.min(1, Math.max(0, 1 - (dist - ARRIVE_RADIUS) / 400)) : 0;
-  const pulseSpeed = Math.max(0.9, 2.4 - proximity * 1.5);
-
-  const title = arrived ? "You're here!"
-    : status === 'denied' ? 'Location blocked'
-    : status === 'nosignal' ? 'Weak GPS signal'
-    : dist != null && dist < 50 ? 'Almost there!'
-    : dist != null && dist < 200 ? 'Getting closer…'
-    : dist != null ? 'Head to the stop'
-    : 'Getting your location…';
-
-  const subtitle = arrived ? "You're within range — tap to check in."
-    : status === 'denied' ? 'Enable location in your browser settings, then reload.'
-    : status === 'nosignal' ? 'Move to an open area for a better signal.'
-    : dist != null ? `Unlocks within ${ARRIVE_RADIUS}m of the stop`
-    : 'Hold tight while we lock onto your GPS…';
-
-  return (
-    <ScreenScroll>
-      <div style={{ padding: '14px 22px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-        <div style={{ position: 'relative', width: 200, height: 200, margin: '18px 0 6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {[0, 1, 2].map(i => (
-            <span key={i} style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: `2px solid ${tint}`, opacity: 0, animation: arrived ? 'none' : `qfRadar ${pulseSpeed}s ${i * (pulseSpeed / 3)}s ease-out infinite`, transition: 'border-color .5s' }} />
-          ))}
-          <div style={{ width: 92, height: 92, borderRadius: '50%', background: arrived ? tint : `color-mix(in srgb, ${tint} 14%, var(--qf-surface))`, color: arrived ? '#fff' : tint, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 10px 26px -10px color-mix(in srgb, ${tint} 50%, transparent)`, border: `2px solid color-mix(in srgb, ${tint} 35%, var(--qf-line))`, transition: 'all .5s' }}>
-            <Icon name={arrived ? 'check' : status === 'denied' ? 'close' : 'pin'} size={44} stroke={2.4} />
-          </div>
-        </div>
-
-        {isLive && distText && (
-          <div style={{ marginBottom: 10, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 18px', borderRadius: 99, background: `color-mix(in srgb, ${tint} 12%, var(--qf-surface))`, border: `1px solid color-mix(in srgb, ${tint} 30%, var(--qf-line))`, color: tint, fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 22, transition: 'all .5s' }}>
-            <Icon name="route" size={20} stroke={2.4} /> {distText}
-          </div>
-        )}
-
-        <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 23, color: 'var(--qf-ink)', marginTop: 8 }}>{title}</div>
-        <div style={{ fontFamily: 'var(--qf-body)', fontSize: 14.5, color: 'var(--qf-muted)', maxWidth: 260, marginTop: 6 }}>{subtitle}</div>
-
-        {isLive && accuracy != null && (
-          <div style={{ marginTop: 14, display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 99, background: 'var(--qf-surface-2)', fontFamily: 'var(--qf-body)', fontSize: 12, color: accuracy > 50 ? '#E0564B' : 'var(--qf-muted)' }}>
-            <Icon name="target" size={13} stroke={2.2} style={{ flexShrink: 0 }} />
-            GPS accuracy ±{accuracy}m{accuracy > 50 ? ' — move to open area' : ''}
-          </div>
-        )}
-      </div>
-      <FooterBar>
-        <Btn full
-          style={{ background: checkedIn ? '#16A34A' : arrived ? '#22C55E' : 'var(--qf-surface-2)', color: arrived ? '#fff' : 'var(--qf-muted)', transition: 'background .4s, color .4s' }}
-          disabled={!arrived || checkedIn}
-          icon={checkedIn ? 'star' : 'check'}
-          onClick={() => { setCheckedIn(true); setTimeout(() => onDone(points, true), 700); }}>
-          {checkedIn ? 'Checked in! +' + points + ' pts' : 'Check in · +' + points}
-        </Btn>
-      </FooterBar>
-    </ScreenScroll>
   );
 }
 
@@ -336,7 +217,6 @@ export default function PlayActivity({ stop, onStopDone, onBack, onPhotoSubmit }
           <span style={{ fontFamily: 'var(--qf-body)', fontSize: 13.5, color: 'var(--qf-ink)', lineHeight: 1.4 }}>{a.clue}</span>
         </div>
       )}
-      {a.type === 'gps' && <GpsActivity key={i} stop={stop} points={a.points} onDone={next} />}
       {a.type === 'photo' && <PhotoActivity key={i} stop={stop} prompt={a.prompt} points={a.points} onDone={next} onSubmit={onPhotoSubmit || (() => {})} onBackToMap={onBack} />}
       {a.type === 'quiz' && <TextActivity key={i} kind="quiz" question={a.question} answer={a.answer} points={a.points} onDone={next} />}
       {a.type === 'riddle' && <TextActivity key={i} kind="riddle" question={a.riddle} answer={a.answer} points={a.points} onDone={next} />}

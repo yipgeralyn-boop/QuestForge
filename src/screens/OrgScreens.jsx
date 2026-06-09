@@ -34,21 +34,7 @@ function NumericInput({ style, value, onChange }) {
 
 const totalPoints = (race) => race.stops.reduce((s, st) => s + st.activities.reduce((a, x) => a + (x.points || 0), 0), 0);
 
-function geoPositionStops(stops) {
-  const geo = stops.filter(s => s.lat != null && s.lng != null);
-  if (geo.length < 2) return stops;
-  const lats = geo.map(s => s.lat), lngs = geo.map(s => s.lng);
-  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
-  const latR = maxLat - minLat || 0.001, lngR = maxLng - minLng || 0.001;
-  return stops.map(s => {
-    if (s.lat == null || s.lng == null) return s;
-    return { ...s, x: Math.round(12 + ((s.lng - minLng) / lngR) * 76), y: Math.round(88 - ((s.lat - minLat) / latR) * 76) };
-  });
-}
-
 const actSummary = (a) => {
-  if (a.type === 'gps') return 'Geo check-in unlocks the stop';
   if (a.type === 'photo') return a.prompt;
   if (a.type === 'quiz') return a.question;
   if (a.type === 'choice') return a.question;
@@ -181,52 +167,10 @@ export function OrgDetails({ race, setRace, back, t }) {
 export function OrgStop({ race, setRace, go, back, t, mapStyle, stopId }) {
   const stop = race.stops.find(s => s.id === stopId);
   const idx = race.stops.findIndex(s => s.id === stopId);
-  const [gpsStatus, setGpsStatus] = useState('idle'); // idle | locating | denied | error
-  const [addrStr, setAddrStr] = useState('');
-  const [addrStatus, setAddrStatus] = useState('idle'); // idle | searching | found | error
-  const [addrResult, setAddrResult] = useState(null); // { display, lat, lng }
   if (!stop) return null;
   const update = (patch) => setRace({ ...race, stops: race.stops.map(s => s.id === stopId ? { ...s, ...patch } : s) });
   const delActivity = (k) => update({ activities: stop.activities.filter((_, i) => i !== k) });
   const delStop = () => { setRace({ ...race, stops: race.stops.filter(s => s.id !== stopId) }); back(); };
-
-  function saveGPS(lat, lng) {
-    const updated = race.stops.map(s => s.id === stopId ? { ...s, lat, lng } : s);
-    setRace({ ...race, stops: geoPositionStops(updated) });
-  }
-
-  function captureGPS() {
-    if (!navigator.geolocation) { setGpsStatus('error'); return; }
-    setGpsStatus('locating');
-    navigator.geolocation.getCurrentPosition(
-      pos => { saveGPS(pos.coords.latitude, pos.coords.longitude); setGpsStatus('idle'); },
-      err => { setGpsStatus(err.code === 1 ? 'denied' : 'error'); setTimeout(() => setGpsStatus('idle'), 3000); },
-      { enableHighAccuracy: true, timeout: 12000 }
-    );
-  }
-
-  async function searchAddress() {
-    if (!addrStr.trim()) return;
-    setAddrStatus('searching');
-    setAddrResult(null);
-    try {
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addrStr)}&format=json&limit=1`;
-      const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
-      const data = await res.json();
-      if (!data.length) { setAddrStatus('error'); return; }
-      setAddrResult({ display: data[0].display_name, lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) });
-      setAddrStatus('found');
-    } catch {
-      setAddrStatus('error');
-    }
-  }
-
-  function confirmAddress() {
-    saveGPS(addrResult.lat, addrResult.lng);
-    setAddrStr('');
-    setAddrResult(null);
-    setAddrStatus('idle');
-  }
 
   return (
     <>
@@ -241,60 +185,6 @@ export function OrgStop({ race, setRace, go, back, t, mapStyle, stopId }) {
           <Field label="Location hint" hint="Players see this as their clue to find the spot">
             <input style={inputStyle} value={stop.hint} onChange={e => update({ hint: e.target.value })} />
           </Field>
-
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 13, color: 'var(--qf-ink)', marginBottom: 7 }}>GPS check-in point</div>
-            {stop.lat != null ? (
-              <div style={{ padding: '12px 14px', borderRadius: 14, background: 'color-mix(in srgb, var(--qf-secondary) 10%, var(--qf-surface))', border: '1px solid color-mix(in srgb, var(--qf-secondary) 35%, var(--qf-line))', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Icon name="pin" size={18} stroke={2.3} style={{ color: 'var(--qf-secondary)', flexShrink: 0 }} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 13, color: 'var(--qf-ink)' }}>Location saved</div>
-                  <div style={{ fontFamily: 'var(--qf-body)', fontSize: 11.5, color: 'var(--qf-muted)', marginTop: 2 }}>{stop.lat.toFixed(5)}, {stop.lng.toFixed(5)}</div>
-                </div>
-                <button onClick={() => { const updated = race.stops.map(s => s.id === stopId ? { ...s, lat: undefined, lng: undefined } : s); setRace({ ...race, stops: geoPositionStops(updated) }); }} style={{ ...iconBtn, width: 30, height: 30, boxShadow: 'none', background: 'transparent', color: 'var(--qf-muted)' }}>
-                  <Icon name="close" size={14} stroke={2.3} />
-                </button>
-              </div>
-            ) : (
-              <>
-                <button onClick={captureGPS} disabled={gpsStatus === 'locating'} style={{ ...addStopBtn, marginTop: 0, opacity: gpsStatus === 'locating' ? 0.6 : 1 }}>
-                  <Icon name="pin" size={17} stroke={2.3} />
-                  {gpsStatus === 'locating' ? 'Getting location…' : 'Capture GPS — stand at this stop'}
-                </button>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '10px 0' }}>
-                  <div style={{ flex: 1, height: 1, background: 'var(--qf-line)' }} />
-                  <span style={{ fontFamily: 'var(--qf-body)', fontSize: 12, color: 'var(--qf-muted)', fontWeight: 600 }}>or search by address</span>
-                  <div style={{ flex: 1, height: 1, background: 'var(--qf-line)' }} />
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <input
-                    style={{ ...inputStyle, flex: 1 }}
-                    value={addrStr}
-                    onChange={e => { setAddrStr(e.target.value); setAddrStatus('idle'); setAddrResult(null); }}
-                    onKeyDown={e => e.key === 'Enter' && searchAddress()}
-                    placeholder="e.g. Marina Bay Sands, Singapore"
-                  />
-                  <button onClick={searchAddress} disabled={addrStatus === 'searching'} style={{ ...iconBtn, flexShrink: 0, background: 'var(--qf-primary)', color: 'var(--qf-primary-ink)', boxShadow: '0 4px 12px -6px var(--qf-primary)', opacity: addrStatus === 'searching' ? 0.6 : 1 }}>
-                    <Icon name={addrStatus === 'searching' ? 'clock' : 'search'} size={18} stroke={2.4} />
-                  </button>
-                </div>
-                {addrStatus === 'error' && <div style={{ marginTop: 6, fontFamily: 'var(--qf-body)', fontSize: 12.5, color: '#E0564B' }}>Address not found — try being more specific.</div>}
-                {addrStatus === 'found' && addrResult && (
-                  <div style={{ marginTop: 8, padding: '10px 12px', borderRadius: 12, background: 'var(--qf-surface-2)', border: '1px solid var(--qf-line)', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                    <Icon name="pin" size={16} stroke={2.3} style={{ color: 'var(--qf-primary)', flexShrink: 0, marginTop: 2 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontFamily: 'var(--qf-body)', fontSize: 12.5, color: 'var(--qf-ink)', lineHeight: 1.4 }}>{addrResult.display}</div>
-                    </div>
-                    <button onClick={confirmAddress} style={{ ...iconBtn, width: 32, height: 32, flexShrink: 0, background: 'var(--qf-secondary)', color: '#fff', boxShadow: 'none' }}>
-                      <Icon name="check" size={16} stroke={2.8} />
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
-            {gpsStatus === 'denied' && <div style={{ marginTop: 8, fontFamily: 'var(--qf-body)', fontSize: 12.5, color: '#E0564B' }}>Location access denied — enable it in browser settings.</div>}
-            {gpsStatus === 'error' && <div style={{ marginTop: 8, fontFamily: 'var(--qf-body)', fontSize: 12.5, color: '#E0564B' }}>Geolocation not available on this device.</div>}
-          </div>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '20px 2px 12px' }}>
             <span style={sectionLabel}>Activities</span>
@@ -338,7 +228,6 @@ export function OrgAddActivity({ race, setRace, back, stopId, t }) {
 
   function commit() {
     let a = { type, points: cfg.points };
-    if (type === 'gps') a.points = cfg.points || 50;
     if (type === 'photo') a.prompt = cfg.prompt || 'Snap a creative team photo here';
     if (type === 'quiz') { a.question = cfg.question || 'Your question'; a.answer = cfg.answer || ''; }
     if (type === 'choice') { a.question = cfg.question || 'Your question'; a.options = cfg.options.filter(Boolean); a.correctIndex = cfg.correctIndex; }
@@ -399,8 +288,6 @@ export function OrgAddActivity({ race, setRace, back, stopId, t }) {
                   </div>
                 ))}
               </>}
-              {type === 'gps' && <div style={{ padding: 14, borderRadius: 14, background: 'var(--qf-surface-2)', fontFamily: 'var(--qf-body)', fontSize: 13.5, color: 'var(--qf-muted)', marginBottom: 14 }}>Players must physically reach this spot. We'll auto-detect arrival within a 30m radius to unlock the stop.</div>}
-
               <Field label="Clue (optional)" hint="A hint players can see while attempting this activity">
                 <input style={inputStyle} value={cfg.clue || ''} onChange={e => set('clue', e.target.value)} placeholder="e.g. Look for the plaque near the entrance" />
               </Field>

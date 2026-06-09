@@ -139,7 +139,6 @@ export function Icon({ name, size = 22, stroke = 2, fill = 'none', style = {}, c
 }
 
 export const ACTIVITY_META = {
-  gps: { label: 'Arrive', verb: 'Check in', icon: 'pin', tint: 'var(--qf-secondary)', blurb: 'Reach the spot to unlock' },
   photo: { label: 'Photo', verb: 'Snap it', icon: 'camera', tint: 'var(--qf-primary)', blurb: 'Capture the challenge' },
   quiz: { label: 'Quiz', verb: 'Answer', icon: 'quiz', tint: 'var(--qf-accent)', blurb: 'Type the right answer' },
   choice: { label: 'Multiple choice', verb: 'Choose', icon: 'choice', tint: '#7C6CF6', blurb: 'Pick the correct option' },
