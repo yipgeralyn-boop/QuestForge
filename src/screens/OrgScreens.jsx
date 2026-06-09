@@ -230,6 +230,7 @@ export function OrgAddActivity({ race, setRace, back, stopId, t, editIndex }) {
   const [type, setType] = useState(existing?.type ?? null);
   const [cfg, setCfg] = useState(() => existing ? {
     points: existing.points || 100,
+    penalty: existing.penalty ?? 25,
     prompt: existing.prompt || '',
     question: existing.question || '',
     answer: existing.answer || '',
@@ -237,14 +238,14 @@ export function OrgAddActivity({ race, setRace, back, stopId, t, editIndex }) {
     options: existing.options ? [...existing.options, '', '', ''].slice(0, 4) : ['', '', '', ''],
     correctIndex: existing.correctIndex ?? 0,
     clue: existing.clue || '',
-  } : { points: 100, options: ['', '', '', ''], correctIndex: 0 });
+  } : { points: 100, penalty: 25, options: ['', '', '', ''], correctIndex: 0 });
 
   function commit() {
     let a = { type, points: cfg.points };
     if (type === 'photo') a.prompt = cfg.prompt || 'Snap a creative team photo here';
-    if (type === 'quiz') { a.question = cfg.question || 'Your question'; a.answer = cfg.answer || ''; }
-    if (type === 'choice') { a.question = cfg.question || 'Your question'; a.options = cfg.options.filter(Boolean); a.correctIndex = cfg.correctIndex; }
-    if (type === 'riddle') { a.riddle = cfg.riddle || 'Your riddle'; a.answer = cfg.answer || ''; }
+    if (type === 'quiz') { a.question = cfg.question || 'Your question'; a.answer = cfg.answer || ''; a.penalty = cfg.penalty ?? 25; }
+    if (type === 'choice') { a.question = cfg.question || 'Your question'; a.options = cfg.options.filter(Boolean); a.correctIndex = cfg.correctIndex; a.penalty = cfg.penalty ?? 25; }
+    if (type === 'riddle') { a.riddle = cfg.riddle || 'Your riddle'; a.answer = cfg.answer || ''; a.penalty = cfg.penalty ?? 25; }
     if (cfg.clue) a.clue = cfg.clue;
     setRace({ ...race, stops: race.stops.map(s => {
       if (s.id !== stopId) return s;
@@ -318,6 +319,18 @@ export function OrgAddActivity({ race, setRace, back, stopId, t, editIndex }) {
                   ))}
                 </div>
               </Field>
+
+              {(type === 'quiz' || type === 'riddle' || type === 'choice') && (
+                <Field label="Wrong answer penalty" hint="Points deducted from a team's score each time they submit a wrong answer">
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {[0, 10, 25, 50].map(p => (
+                      <Chip key={p} active={cfg.penalty === p} onClick={() => set('penalty', p)} tint="#E0564B" style={{ flex: 1, justifyContent: 'center', padding: '11px 0' }}>
+                        {p === 0 ? 'None' : `−${p}`}
+                      </Chip>
+                    ))}
+                  </div>
+                </Field>
+              )}
             </div>
           )}
         </div>

@@ -156,7 +156,7 @@ export const SAMPLE_RACE = {
       hint: 'Where the weekly market used to be held',
       x: 22, y: 65,
       activities: [
-        { type: 'quiz', question: 'What year was this clock tower first built?', answer: '1892', points: 100, clue: 'Look for the plaque on the north wall' },
+        { type: 'quiz', question: 'What year was this clock tower first built?', answer: '1892', points: 100, penalty: 25, clue: 'Look for the plaque on the north wall' },
         { type: 'photo', prompt: 'Whole team doing a superhero pose in front of the fountain', points: 150 }
       ]
     },
@@ -165,8 +165,8 @@ export const SAMPLE_RACE = {
       hint: 'Behind the red brick wall on Maple Street',
       x: 52, y: 42,
       activities: [
-        { type: 'riddle', riddle: 'I have hands but cannot clap, and a face but no eyes to see. What am I?', answer: 'clock', points: 100 },
-        { type: 'choice', question: 'Which flower is the symbol of this city?', options: ['Rose', 'Lotus', 'Tulip', 'Orchid'], correctIndex: 2, points: 100 }
+        { type: 'riddle', riddle: 'I have hands but cannot clap, and a face but no eyes to see. What am I?', answer: 'clock', points: 100, penalty: 25 },
+        { type: 'choice', question: 'Which flower is the symbol of this city?', options: ['Rose', 'Lotus', 'Tulip', 'Orchid'], correctIndex: 2, points: 100, penalty: 25 }
       ]
     },
     {
@@ -175,7 +175,7 @@ export const SAMPLE_RACE = {
       x: 74, y: 22,
       activities: [
         { type: 'photo', prompt: 'Capture the full harbour view — make sure the water is in shot!', points: 200 },
-        { type: 'quiz', question: 'How many bridges can you count from here?', answer: '3', points: 100, clue: 'Face towards the bay' }
+        { type: 'quiz', question: 'How many bridges can you count from here?', answer: '3', points: 100, penalty: 25, clue: 'Face towards the bay' }
       ]
     }
   ]

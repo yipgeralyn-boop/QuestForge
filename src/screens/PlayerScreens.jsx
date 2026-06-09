@@ -391,7 +391,13 @@ export function PlayMap({ race, play, go, back, t, mapStyle, onDismissBroadcast 
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
                       {s.activities.map((a, k) => {
                         const m = ACTIVITY_META[a.type];
-                        return <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 8, background: 'var(--qf-surface-2)', color: m.tint, fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 11.5 }}><Icon name={m.icon} size={12} stroke={2.4} /> {m.label} · {a.points}</span>;
+                        const hasPenalty = a.penalty > 0 && ['quiz', 'riddle', 'choice'].includes(a.type);
+                        return (
+                          <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 8, background: 'var(--qf-surface-2)', color: m.tint, fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 11.5 }}>
+                            <Icon name={m.icon} size={12} stroke={2.4} /> {m.label} · {a.points} pts
+                            {hasPenalty && <span style={{ color: '#E0564B' }}>· −{a.penalty} wrong</span>}
+                          </span>
+                        );
                       })}
                     </div>
                   )}

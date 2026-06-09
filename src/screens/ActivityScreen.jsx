@@ -5,7 +5,6 @@ import { Btn, TopBar, ScreenScroll, FooterBar } from '../components/UI.jsx';
 const norm = (s) => (s || '').trim().toLowerCase().replace(/^(a|an|the)\s+/, '').replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ');
 
 const HINT_COST = 50;
-const WRONG_PENALTY = 25;
 
 function ActHeader({ stop, idx, total, onBack, m }) {
   return (
@@ -115,7 +114,17 @@ function PhotoActivity({ stop, prompt, points, onDone, onSubmit, onBackToMap }) 
   );
 }
 
-function TextActivity({ kind, question, answer, clue, points, onDone, onWrongAnswer, onHintUsed }) {
+function PenaltyWarning({ penalty }) {
+  if (!penalty) return null;
+  return (
+    <div style={{ margin: '0 0 16px', padding: '9px 13px', borderRadius: 12, background: 'color-mix(in srgb, #E0564B 10%, var(--qf-surface))', border: '1px solid color-mix(in srgb, #E0564B 25%, var(--qf-line))', display: 'flex', alignItems: 'center', gap: 8 }}>
+      <Icon name="close" size={14} stroke={2.8} style={{ color: '#E0564B', flexShrink: 0 }} />
+      <span style={{ fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 12.5, color: '#E0564B' }}>Wrong answers deduct {penalty} pts each</span>
+    </div>
+  );
+}
+
+function TextActivity({ kind, question, answer, clue, points, penalty = 0, onDone, onWrongAnswer, onHintUsed }) {
   const [val, setVal] = useState('');
   const [tries, setTries] = useState(0);
   const [state, setState] = useState('idle');
@@ -128,7 +137,7 @@ function TextActivity({ kind, question, answer, clue, points, onDone, onWrongAns
       setState('right'); setTimeout(() => onDone(points), 850);
     } else {
       setState('wrong'); setTries(t => t + 1);
-      if (onWrongAnswer) onWrongAnswer(WRONG_PENALTY);
+      if (penalty > 0 && onWrongAnswer) onWrongAnswer(penalty);
       if (ref.current) { ref.current.style.animation = 'none'; void ref.current.offsetWidth; ref.current.style.animation = 'qfShake .4s'; }
     }
   }
@@ -146,7 +155,9 @@ function TextActivity({ kind, question, answer, clue, points, onDone, onWrongAns
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 13px', borderRadius: 99, whiteSpace: 'nowrap', background: `color-mix(in srgb, ${tint} 16%, transparent)`, color: tint, fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 12.5 }}>
           <Icon name={ACTIVITY_META[kind].icon} size={15} stroke={2.4} /> {kind === 'riddle' ? 'Riddle me this' : 'Quiz question'}
         </div>
-        <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 25, lineHeight: 1.2, color: 'var(--qf-ink)', margin: '16px 0 22px', fontStyle: kind === 'riddle' ? 'italic' : 'normal' }}>{question}</div>
+        <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 25, lineHeight: 1.2, color: 'var(--qf-ink)', margin: '16px 0 16px', fontStyle: kind === 'riddle' ? 'italic' : 'normal' }}>{question}</div>
+
+        <PenaltyWarning penalty={penalty} />
 
         {hintShown && clue && (
           <div style={{ marginBottom: 16, padding: '11px 14px', borderRadius: 14, background: 'color-mix(in srgb, var(--qf-accent) 14%, var(--qf-surface))', border: '1px solid color-mix(in srgb, var(--qf-accent) 30%, var(--qf-line))', display: 'flex', alignItems: 'flex-start', gap: 9 }}>
@@ -165,7 +176,7 @@ function TextActivity({ kind, question, answer, clue, points, onDone, onWrongAns
         {state === 'wrong' && (
           <div style={{ marginTop: 12, color: '#E0564B', fontFamily: 'var(--qf-body)', fontWeight: 600, fontSize: 13.5, display: 'flex', alignItems: 'center', gap: 6 }}>
             <Icon name="close" size={15} stroke={2.6} /> Not quite — try again!
-            <span style={{ marginLeft: 'auto', padding: '2px 8px', borderRadius: 99, background: 'color-mix(in srgb, #E0564B 14%, transparent)', fontSize: 12 }}>−{WRONG_PENALTY} pts</span>
+            {penalty > 0 && <span style={{ marginLeft: 'auto', padding: '2px 8px', borderRadius: 99, background: 'color-mix(in srgb, #E0564B 14%, transparent)', fontSize: 12 }}>−{penalty} pts</span>}
           </div>
         )}
         {state === 'right' && (
@@ -185,7 +196,7 @@ function TextActivity({ kind, question, answer, clue, points, onDone, onWrongAns
   );
 }
 
-function ChoiceActivity({ question, options, correctIndex, points, onDone, onWrongAnswer }) {
+function ChoiceActivity({ question, options, correctIndex, points, penalty = 0, onDone, onWrongAnswer }) {
   const [picked, setPicked] = useState(null);
   const [locked, setLocked] = useState(false);
   const [wrongCount, setWrongCount] = useState(0);
@@ -197,7 +208,7 @@ function ChoiceActivity({ question, options, correctIndex, points, onDone, onWro
       setLocked(true); setTimeout(() => onDone(points), 900);
     } else {
       setWrongCount(c => c + 1);
-      if (onWrongAnswer) onWrongAnswer(WRONG_PENALTY);
+      if (penalty > 0 && onWrongAnswer) onWrongAnswer(penalty);
       setTimeout(() => setPicked(null), 700);
     }
   }
@@ -208,12 +219,14 @@ function ChoiceActivity({ question, options, correctIndex, points, onDone, onWro
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 13px', borderRadius: 99, whiteSpace: 'nowrap', background: `color-mix(in srgb, ${ACTIVITY_META.choice.tint} 16%, transparent)`, color: ACTIVITY_META.choice.tint, fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 12.5 }}>
           <Icon name="choice" size={15} stroke={2.4} /> Multiple choice
         </div>
-        <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 25, lineHeight: 1.2, color: 'var(--qf-ink)', margin: '16px 0 20px' }}>{question}</div>
+        <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 25, lineHeight: 1.2, color: 'var(--qf-ink)', margin: '16px 0 16px' }}>{question}</div>
+
+        <PenaltyWarning penalty={penalty} />
 
         {wrongCount > 0 && !locked && (
           <div style={{ marginBottom: 14, padding: '8px 12px', borderRadius: 10, background: 'color-mix(in srgb, #E0564B 10%, transparent)', display: 'flex', alignItems: 'center', gap: 8 }}>
             <Icon name="close" size={14} stroke={2.6} style={{ color: '#E0564B', flexShrink: 0 }} />
-            <span style={{ fontFamily: 'var(--qf-body)', fontWeight: 600, fontSize: 13, color: '#E0564B' }}>Wrong choice — −{WRONG_PENALTY} pts</span>
+            <span style={{ fontFamily: 'var(--qf-body)', fontWeight: 600, fontSize: 13, color: '#E0564B' }}>Wrong choice{penalty > 0 ? ` — −${penalty} pts` : ' — try again!'}</span>
           </div>
         )}
 
@@ -257,9 +270,9 @@ export default function PlayActivity({ stop, onStopDone, onBack, onPhotoSubmit, 
     <>
       <ActHeader stop={stop} idx={i} total={acts.length} onBack={onBack} m={m} />
       {a.type === 'photo' && <PhotoActivity key={i} stop={stop} prompt={a.prompt} points={a.points} onDone={next} onSubmit={onPhotoSubmit || (() => {})} onBackToMap={onBack} />}
-      {a.type === 'quiz' && <TextActivity key={i} kind="quiz" question={a.question} answer={a.answer} clue={a.clue} points={a.points} onDone={next} onWrongAnswer={onWrongAnswer} onHintUsed={onHintUsed} />}
-      {a.type === 'riddle' && <TextActivity key={i} kind="riddle" question={a.riddle} answer={a.answer} clue={a.clue} points={a.points} onDone={next} onWrongAnswer={onWrongAnswer} onHintUsed={onHintUsed} />}
-      {a.type === 'choice' && <ChoiceActivity key={i} question={a.question} options={a.options} correctIndex={a.correctIndex} points={a.points} onDone={next} onWrongAnswer={onWrongAnswer} />}
+      {a.type === 'quiz' && <TextActivity key={i} kind="quiz" question={a.question} answer={a.answer} clue={a.clue} points={a.points} penalty={a.penalty ?? 25} onDone={next} onWrongAnswer={onWrongAnswer} onHintUsed={onHintUsed} />}
+      {a.type === 'riddle' && <TextActivity key={i} kind="riddle" question={a.riddle} answer={a.answer} clue={a.clue} points={a.points} penalty={a.penalty ?? 25} onDone={next} onWrongAnswer={onWrongAnswer} onHintUsed={onHintUsed} />}
+      {a.type === 'choice' && <ChoiceActivity key={i} question={a.question} options={a.options} correctIndex={a.correctIndex} points={a.points} penalty={a.penalty ?? 25} onDone={next} onWrongAnswer={onWrongAnswer} />}
     </>
   );
 }
