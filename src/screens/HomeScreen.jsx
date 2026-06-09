@@ -53,7 +53,7 @@ export default function HomeScreen({ race, go, t, mapStyle }) {
             {[
               ['edit',    'var(--qf-primary)',   'Build your route',        'Drop stops on the map and set a name and hint for each one.'],
               ['camera',  '#E85D9E',             'Add challenges',          'Attach photo missions, quizzes, riddles, or multiple choice questions to each stop.'],
-              ['users',   'var(--qf-secondary)', 'Invite your teams',       'Share the join code or QR — teams scan in and see the same map in real time.'],
+              ['users',   'var(--qf-secondary)', 'Invite your teams',       'Share the join code — team leaders can scan in and complete the quest activities in real time.'],
               ['trophy',  'var(--qf-accent)',    'Race to the finish',      'First team to complete every stop and collect the most points wins.'],
             ].map(([icon, tint, title, desc], i) => (
               <div key={i} style={{ display: 'flex', gap: 14, padding: '14px 16px', borderRadius: 18, background: 'var(--qf-surface)', border: '1px solid var(--qf-line)' }}>
