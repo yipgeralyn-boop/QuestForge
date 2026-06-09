@@ -51,8 +51,8 @@ export default function HomeScreen({ race, go, t, mapStyle }) {
           <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 17, color: 'var(--qf-ink)', marginBottom: 16 }}>How it works</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {[
-              ['edit',    'var(--qf-primary)',   'Build your route',        'Drop stops on the map and set a name, hint, and GPS location for each one.'],
-              ['camera',  '#E85D9E',             'Add challenges',          'Attach photo missions, quizzes, riddles, or GPS check-ins to each stop.'],
+              ['edit',    'var(--qf-primary)',   'Build your route',        'Drop stops on the map and set a name and hint for each one.'],
+              ['camera',  '#E85D9E',             'Add challenges',          'Attach photo missions, quizzes, riddles, or multiple choice questions to each stop.'],
               ['users',   'var(--qf-secondary)', 'Invite your teams',       'Share the join code or QR — teams scan in and see the same map in real time.'],
               ['trophy',  'var(--qf-accent)',    'Race to the finish',      'First team to complete every stop and collect the most points wins.'],
             ].map(([icon, tint, title, desc], i) => (
