@@ -110,7 +110,7 @@ function QFApp() {
     case 'join': screen = <PlayJoin {...common} />; break;
     case 'teamSetup': screen = <PlayTeamSetup {...common} setTeam={(teamName, roster) => setPlay(p => ({ ...p, teamName, roster }))} />; break;
     case 'lobby': screen = <PlayLobby {...common} startPlay={startPlay} play={play} />; break;
-    case 'play': screen = <PlayMap {...common} play={play} />; break;
+    case 'play': screen = <PlayMap {...common} play={play} onDismissBroadcast={() => setPlay(p => ({ ...p, dismissedBroadcastAt: race.broadcast?.sentAt }))} />; break;
     case 'activity': {
       const stop = race.stops.find(s => s.id === cur.stopId);
       if (!stop || !stop.activities || stop.activities.length === 0) { screen = <PlayMap {...common} play={play} />; break; }
@@ -119,6 +119,8 @@ function QFApp() {
         onStopDone={(earned) => { prevRankRef.current = qfRank(race, play); finishStop(earned, stop.id, stop.name); }}
         onBack={back}
         onPhotoSubmit={(data) => setRace(r => ({ ...r, pendingPhotos: [...(r.pendingPhotos || []), { ...data, id: Date.now() + Math.random(), teamName: play.teamName || 'Unknown team' }] }))}
+        onHintUsed={(pts) => setPlay(p => ({ ...p, score: Math.max(0, p.score - pts) }))}
+        onWrongAnswer={(pts) => setPlay(p => ({ ...p, score: Math.max(0, p.score - pts) }))}
       />;
       break;
     }

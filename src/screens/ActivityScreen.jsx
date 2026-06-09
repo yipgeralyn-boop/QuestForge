@@ -4,6 +4,9 @@ import { Btn, TopBar, ScreenScroll, FooterBar } from '../components/UI.jsx';
 
 const norm = (s) => (s || '').trim().toLowerCase().replace(/^(a|an|the)\s+/, '').replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ');
 
+const HINT_COST = 50;
+const WRONG_PENALTY = 25;
+
 function ActHeader({ stop, idx, total, onBack, m }) {
   return (
     <TopBar sub={stop.name} title={m.label} onBack={onBack}
@@ -12,7 +15,7 @@ function ActHeader({ stop, idx, total, onBack, m }) {
 }
 
 function PhotoActivity({ stop, prompt, points, onDone, onSubmit, onBackToMap }) {
-  const [phase, setPhase] = useState('aim'); // aim | review | submitted
+  const [phase, setPhase] = useState('aim');
   const [photoUrl, setPhotoUrl] = useState(null);
   const [inputKey, setInputKey] = useState(0);
 
@@ -30,8 +33,6 @@ function PhotoActivity({ stop, prompt, points, onDone, onSubmit, onBackToMap }) 
     setPhase('submitted');
   }
 
-  // iOS fix: input embedded inside label (not htmlFor), positioned off-screen (not display:none),
-  // and re-keyed after each capture so it's a fresh DOM element next time
   const CameraInput = () => (
     <input key={inputKey} type="file" accept="image/*" capture="environment"
       style={{ position: 'absolute', left: '-9999px', top: 0, opacity: 0, width: 1, height: 1 }}
@@ -114,20 +115,27 @@ function PhotoActivity({ stop, prompt, points, onDone, onSubmit, onBackToMap }) 
   );
 }
 
-function TextActivity({ kind, question, answer, points, onDone }) {
+function TextActivity({ kind, question, answer, clue, points, onDone, onWrongAnswer, onHintUsed }) {
   const [val, setVal] = useState('');
   const [tries, setTries] = useState(0);
   const [state, setState] = useState('idle');
+  const [hintShown, setHintShown] = useState(false);
   const ref = useRef(null);
 
   function submit() {
-    if (!val.trim()) return;
+    if (!val.trim() || state === 'right') return;
     if (norm(val) === norm(answer) || (answer && norm(val).includes(norm(answer)) && norm(answer).length > 2)) {
-      setState('right'); setTimeout(() => onDone(points, true, tries === 0), 850);
+      setState('right'); setTimeout(() => onDone(points), 850);
     } else {
       setState('wrong'); setTries(t => t + 1);
+      if (onWrongAnswer) onWrongAnswer(WRONG_PENALTY);
       if (ref.current) { ref.current.style.animation = 'none'; void ref.current.offsetWidth; ref.current.style.animation = 'qfShake .4s'; }
     }
+  }
+
+  function useHint() {
+    setHintShown(true);
+    if (onHintUsed) onHintUsed(HINT_COST);
   }
 
   const tint = ACTIVITY_META[kind].tint;
@@ -139,30 +147,59 @@ function TextActivity({ kind, question, answer, points, onDone }) {
           <Icon name={ACTIVITY_META[kind].icon} size={15} stroke={2.4} /> {kind === 'riddle' ? 'Riddle me this' : 'Quiz question'}
         </div>
         <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 25, lineHeight: 1.2, color: 'var(--qf-ink)', margin: '16px 0 22px', fontStyle: kind === 'riddle' ? 'italic' : 'normal' }}>{question}</div>
+
+        {hintShown && clue && (
+          <div style={{ marginBottom: 16, padding: '11px 14px', borderRadius: 14, background: 'color-mix(in srgb, var(--qf-accent) 14%, var(--qf-surface))', border: '1px solid color-mix(in srgb, var(--qf-accent) 30%, var(--qf-line))', display: 'flex', alignItems: 'flex-start', gap: 9 }}>
+            <Icon name="sparkle" size={15} stroke={2.3} style={{ color: 'var(--qf-accent)', flexShrink: 0, marginTop: 2 }} />
+            <span style={{ fontFamily: 'var(--qf-body)', fontSize: 13.5, color: 'var(--qf-ink)', lineHeight: 1.4 }}>{clue}</span>
+          </div>
+        )}
+
         <div ref={ref}>
           <input autoFocus value={val} disabled={state === 'right'} onChange={e => { setVal(e.target.value); if (state === 'wrong') setState('idle'); }}
             onKeyDown={e => e.key === 'Enter' && submit()}
             placeholder="Type your answer…"
             style={{ width: '100%', boxSizing: 'border-box', padding: '16px 16px', borderRadius: 16, fontFamily: 'var(--qf-body)', fontSize: 17, outline: 'none', WebkitAppearance: 'none', color: 'var(--qf-ink)', background: 'var(--qf-surface)', border: '2px solid ' + (state === 'right' ? 'var(--qf-secondary)' : state === 'wrong' ? '#E0564B' : 'var(--qf-line)'), transition: 'border .15s' }} />
         </div>
-        {state === 'wrong' && <div style={{ marginTop: 12, color: '#E0564B', fontFamily: 'var(--qf-body)', fontWeight: 600, fontSize: 13.5, display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="close" size={15} stroke={2.6} /> Not quite — give it another go!</div>}
-        {state === 'right' && <div style={{ marginTop: 12, color: 'var(--qf-secondary)', fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="check" size={16} stroke={2.8} /> Correct!{tries === 0 ? ' First try — nice!' : ''}</div>}
-        {tries >= 2 && state !== 'right' && <button onClick={() => alert(`Hint: the answer is "${answer}"`)} style={{ marginTop: 16, padding: '9px 14px', borderRadius: 12, border: '1.5px solid var(--qf-line)', background: 'transparent', color: 'var(--qf-muted)', fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 13.5, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 7 }}><Icon name="sparkle" size={15} stroke={2.2} /> Need a hint?</button>}
+
+        {state === 'wrong' && (
+          <div style={{ marginTop: 12, color: '#E0564B', fontFamily: 'var(--qf-body)', fontWeight: 600, fontSize: 13.5, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Icon name="close" size={15} stroke={2.6} /> Not quite — try again!
+            <span style={{ marginLeft: 'auto', padding: '2px 8px', borderRadius: 99, background: 'color-mix(in srgb, #E0564B 14%, transparent)', fontSize: 12 }}>−{WRONG_PENALTY} pts</span>
+          </div>
+        )}
+        {state === 'right' && (
+          <div style={{ marginTop: 12, color: 'var(--qf-secondary)', fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Icon name="check" size={16} stroke={2.8} /> Correct!{tries === 0 ? ' First try — nice!' : ''}
+          </div>
+        )}
+
+        {tries >= 1 && state !== 'right' && clue && !hintShown && (
+          <button onClick={useHint} style={{ marginTop: 16, padding: '10px 16px', borderRadius: 12, border: '1.5px solid var(--qf-line)', background: 'transparent', color: 'var(--qf-muted)', fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 13.5, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 7, WebkitTapHighlightColor: 'transparent' }}>
+            <Icon name="sparkle" size={15} stroke={2.2} /> Use hint <span style={{ color: '#E0564B', fontSize: 12 }}>−{HINT_COST} pts</span>
+          </button>
+        )}
       </div>
       <FooterBar><Btn full variant="primary" disabled={state === 'right'} onClick={submit}>Submit answer</Btn></FooterBar>
     </ScreenScroll>
   );
 }
 
-function ChoiceActivity({ question, options, correctIndex, points, onDone }) {
+function ChoiceActivity({ question, options, correctIndex, points, onDone, onWrongAnswer }) {
   const [picked, setPicked] = useState(null);
   const [locked, setLocked] = useState(false);
+  const [wrongCount, setWrongCount] = useState(0);
 
   function choose(i) {
     if (locked) return;
     setPicked(i);
-    if (i === correctIndex) { setLocked(true); setTimeout(() => onDone(points, true), 900); }
-    else { setTimeout(() => setPicked(null), 700); }
+    if (i === correctIndex) {
+      setLocked(true); setTimeout(() => onDone(points), 900);
+    } else {
+      setWrongCount(c => c + 1);
+      if (onWrongAnswer) onWrongAnswer(WRONG_PENALTY);
+      setTimeout(() => setPicked(null), 700);
+    }
   }
 
   return (
@@ -172,6 +209,14 @@ function ChoiceActivity({ question, options, correctIndex, points, onDone }) {
           <Icon name="choice" size={15} stroke={2.4} /> Multiple choice
         </div>
         <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 25, lineHeight: 1.2, color: 'var(--qf-ink)', margin: '16px 0 20px' }}>{question}</div>
+
+        {wrongCount > 0 && !locked && (
+          <div style={{ marginBottom: 14, padding: '8px 12px', borderRadius: 10, background: 'color-mix(in srgb, #E0564B 10%, transparent)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Icon name="close" size={14} stroke={2.6} style={{ color: '#E0564B', flexShrink: 0 }} />
+            <span style={{ fontFamily: 'var(--qf-body)', fontWeight: 600, fontSize: 13, color: '#E0564B' }}>Wrong choice — −{WRONG_PENALTY} pts</span>
+          </div>
+        )}
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
           {options.map((o, i) => {
             const isPicked = picked === i;
@@ -195,7 +240,7 @@ function ChoiceActivity({ question, options, correctIndex, points, onDone }) {
   );
 }
 
-export default function PlayActivity({ stop, onStopDone, onBack, onPhotoSubmit }) {
+export default function PlayActivity({ stop, onStopDone, onBack, onPhotoSubmit, onHintUsed, onWrongAnswer }) {
   const [i, setI] = useState(0);
   const earned = useRef(0);
   const acts = stop.activities;
@@ -211,16 +256,10 @@ export default function PlayActivity({ stop, onStopDone, onBack, onPhotoSubmit }
   return (
     <>
       <ActHeader stop={stop} idx={i} total={acts.length} onBack={onBack} m={m} />
-      {a.clue && (
-        <div style={{ margin: '0 18px 4px', padding: '10px 14px', borderRadius: 14, background: 'color-mix(in srgb, var(--qf-accent) 14%, var(--qf-surface))', border: '1px solid color-mix(in srgb, var(--qf-accent) 30%, var(--qf-line))', display: 'flex', alignItems: 'flex-start', gap: 9 }}>
-          <Icon name="sparkle" size={15} stroke={2.3} style={{ color: 'var(--qf-accent)', flexShrink: 0, marginTop: 2 }} />
-          <span style={{ fontFamily: 'var(--qf-body)', fontSize: 13.5, color: 'var(--qf-ink)', lineHeight: 1.4 }}>{a.clue}</span>
-        </div>
-      )}
       {a.type === 'photo' && <PhotoActivity key={i} stop={stop} prompt={a.prompt} points={a.points} onDone={next} onSubmit={onPhotoSubmit || (() => {})} onBackToMap={onBack} />}
-      {a.type === 'quiz' && <TextActivity key={i} kind="quiz" question={a.question} answer={a.answer} points={a.points} onDone={next} />}
-      {a.type === 'riddle' && <TextActivity key={i} kind="riddle" question={a.riddle} answer={a.answer} points={a.points} onDone={next} />}
-      {a.type === 'choice' && <ChoiceActivity key={i} question={a.question} options={a.options} correctIndex={a.correctIndex} points={a.points} onDone={next} />}
+      {a.type === 'quiz' && <TextActivity key={i} kind="quiz" question={a.question} answer={a.answer} clue={a.clue} points={a.points} onDone={next} onWrongAnswer={onWrongAnswer} onHintUsed={onHintUsed} />}
+      {a.type === 'riddle' && <TextActivity key={i} kind="riddle" question={a.riddle} answer={a.answer} clue={a.clue} points={a.points} onDone={next} onWrongAnswer={onWrongAnswer} onHintUsed={onHintUsed} />}
+      {a.type === 'choice' && <ChoiceActivity key={i} question={a.question} options={a.options} correctIndex={a.correctIndex} points={a.points} onDone={next} onWrongAnswer={onWrongAnswer} />}
     </>
   );
 }

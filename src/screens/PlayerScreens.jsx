@@ -4,6 +4,24 @@ import { Btn, TopBar, Chip, Stat, Progress, Avatar, RankBadge, Burst, ScreenScro
 import AdventureMap from '../components/AdventureMap.jsx';
 
 const stopPoints = (st) => st.activities.reduce((a, x) => a + (x.points || 0), 0);
+
+function getSimRivals(race, play) {
+  if (!play?.startTime || !race?.stops?.length) return [];
+  const elapsed = Math.max(0, (Date.now() - play.startTime) / 1000);
+  const duration = (race.duration || 60) * 60;
+  const pct = Math.min(1, elapsed / duration);
+  const total = race.stops.length;
+  const totalPts = race.stops.reduce((a, s) => a + s.activities.reduce((b, x) => b + (x.points || 0), 0), 0);
+  return [
+    { name: 'Team Falcon',    color: '#7C6CF6', rate: 0.78 },
+    { name: 'The Navigators', color: '#22D3EE', rate: 0.50 },
+    { name: 'Lost & Found',   color: '#F472B6', rate: 0.28 },
+  ].map(r => ({
+    name: r.name, color: r.color,
+    stops: Math.min(total, Math.round(total * pct * r.rate * 1.4)),
+    score: Math.round(totalPts * pct * r.rate),
+  }));
+}
 const totalPoints = (race) => race.stops.reduce((a, st) => a + stopPoints(st), 0);
 const pointsThrough = (race, idx) => race.stops.slice(0, idx).reduce((a, st) => a + stopPoints(st), 0);
 
@@ -227,7 +245,7 @@ export function PlayLobby({ race, go, back, t, mapStyle, startPlay, play }) {
   );
 }
 
-export function PlayMap({ race, play, go, back, t, mapStyle }) {
+export function PlayMap({ race, play, go, back, t, mapStyle, onDismissBroadcast }) {
   const total = race.stops.length;
   const allDone = play.completedIds.length >= total;
   const rank = qfRank(race, play);
@@ -301,6 +319,28 @@ export function PlayMap({ race, play, go, back, t, mapStyle }) {
           <div style={{ height: '100%', borderRadius: 99, background: urgent ? '#E0564B' : 'var(--qf-primary)', width: `${(secsLeft / (race.duration * 60)) * 100}%`, transition: 'width 1s linear, background .4s' }} />
         </div>
         <span style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 16, color: urgent ? '#E0564B' : 'var(--qf-ink)', minWidth: 46, textAlign: 'right', transition: 'color .4s' }}>{timeStr}</span>
+      </div>
+
+      {race.broadcast?.message && play.dismissedBroadcastAt !== race.broadcast.sentAt && (
+        <div style={{ margin: '0 18px 6px', padding: '11px 14px', borderRadius: 14, background: 'color-mix(in srgb, var(--qf-secondary) 12%, var(--qf-surface))', border: '1px solid color-mix(in srgb, var(--qf-secondary) 28%, var(--qf-line))', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+          <Icon name="bolt" size={15} stroke={2.4} style={{ color: 'var(--qf-secondary)', flexShrink: 0, marginTop: 1 }} />
+          <span style={{ flex: 1, fontFamily: 'var(--qf-body)', fontSize: 13.5, color: 'var(--qf-ink)', lineHeight: 1.4 }}>{race.broadcast.message}</span>
+          <button onClick={onDismissBroadcast} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--qf-muted)', padding: 0, flexShrink: 0, display: 'flex' }}>
+            <Icon name="close" size={15} stroke={2.4} />
+          </button>
+        </div>
+      )}
+
+      <div style={{ margin: '0 18px 6px', display: 'flex', gap: 6 }}>
+        {[{ name: 'You', color: 'var(--qf-primary)', stops: play.completedIds.length, score: play.score, isMe: true }, ...getSimRivals(race, play)].map((r, i) => (
+          <div key={i} style={{ flex: 1, padding: '7px 9px', borderRadius: 11, background: r.isMe ? 'color-mix(in srgb, var(--qf-primary) 10%, var(--qf-surface))' : 'var(--qf-surface)', border: `1px solid ${r.isMe ? 'color-mix(in srgb, var(--qf-primary) 30%, var(--qf-line))' : 'var(--qf-line)'}` }}>
+            <div style={{ fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 10, color: r.isMe ? 'var(--qf-primary)' : 'var(--qf-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: 2 }}>{r.name}</div>
+            <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 13, color: 'var(--qf-ink)', lineHeight: 1 }}>{r.score}<span style={{ fontFamily: 'var(--qf-body)', fontSize: 9, color: 'var(--qf-muted)', marginLeft: 2 }}>pts</span></div>
+            <div style={{ marginTop: 4, height: 3, borderRadius: 99, background: 'var(--qf-line)', overflow: 'hidden' }}>
+              <div style={{ height: '100%', borderRadius: 99, background: r.isMe ? 'var(--qf-primary)' : r.color, width: total > 0 ? `${(r.stops / total) * 100}%` : '0%', transition: 'width 1s linear' }} />
+            </div>
+          </div>
+        ))}
       </div>
 
       <div style={{ padding: '0 18px 8px' }}>

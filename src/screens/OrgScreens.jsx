@@ -399,6 +399,16 @@ export function OrgPublish({ race, setRace, go, back, t, mapStyle }) {
 export function OrgDashboard({ race, setRace, go, back, mapStyle, play, setPlay }) {
   const total = race.stops.length;
   const pending = race.pendingPhotos || [];
+  const [broadcastMsg, setBroadcastMsg] = useState('');
+  const [broadcastSent, setBroadcastSent] = useState(false);
+
+  function sendBroadcast() {
+    if (!broadcastMsg.trim()) return;
+    setRace(r => ({ ...r, broadcast: { message: broadcastMsg.trim(), sentAt: Date.now() } }));
+    setBroadcastMsg('');
+    setBroadcastSent(true);
+    setTimeout(() => setBroadcastSent(false), 2000);
+  }
 
   function approvePhoto(id) {
     const photo = (race.pendingPhotos || []).find(p => p.id === id);
@@ -465,6 +475,21 @@ export function OrgDashboard({ race, setRace, go, back, mapStyle, play, setPlay 
               </div>
             </div>
           )}
+
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 16, color: 'var(--qf-ink)', marginBottom: 10 }}>Broadcast to players</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                style={{ ...inputStyle, flex: 1 }}
+                value={broadcastMsg}
+                onChange={e => setBroadcastMsg(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && sendBroadcast()}
+                placeholder="e.g. Bonus stop now open at the park!"
+              />
+              <Btn variant="primary" icon="bolt" onClick={sendBroadcast} disabled={!broadcastMsg.trim()}>{broadcastSent ? 'Sent!' : 'Send'}</Btn>
+            </div>
+            {race.broadcast && <div style={{ fontFamily: 'var(--qf-body)', fontSize: 12, color: 'var(--qf-muted)', marginTop: 6 }}>Last: "{race.broadcast.message}"</div>}
+          </div>
 
           <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 16, color: 'var(--qf-ink)', marginBottom: 10 }}>Live standings</div>
           {play && play.teamName ? (
