@@ -360,7 +360,7 @@ export function PlayResult({ race, play, go }) {
       <Burst run={burst} />
       <ScreenScroll>
         <div style={{ padding: '54px 24px 8px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-          <div style={{ width: 96, height: 96, borderRadius: '50%', background: 'var(--qf-secondary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 14px 30px -10px var(--qf-secondary)', animation: 'qfPop .5s ease' }}>
+          <div style={{ width: 96, height: 96, borderRadius: '50%', background: 'var(--qf-secondary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 14px 30px -10px var(--qf-secondary)' }}>
             <Icon name="check" size={50} stroke={3} />
           </div>
           <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 27, color: 'var(--qf-ink)', marginTop: 18 }}>Stop cleared!</div>
@@ -368,7 +368,7 @@ export function PlayResult({ race, play, go }) {
 
           <div style={{ marginTop: 22, width: '100%', padding: 20, borderRadius: 22, background: 'var(--qf-surface)', border: '1px solid var(--qf-line)', boxShadow: '0 10px 26px -16px var(--qf-shadow)' }}>
             <div style={{ fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--qf-muted)' }}>Points this stop</div>
-            <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 52, color: 'var(--qf-primary)', lineHeight: 1.1, animation: 'qfPop .5s .1s ease both' }}>+{play.lastEarned}</div>
+            <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 52, color: 'var(--qf-primary)', lineHeight: 1.1 }}>+{play.lastEarned}</div>
             <div style={{ display: 'flex', borderTop: '1px solid var(--qf-line)', marginTop: 14, paddingTop: 14 }}>
               <Stat icon="trophy" value={ordinal(qfRank(race, play))} label="Position" tint="var(--qf-accent)" />
               <Stat icon="star" value={play.score} label="Total" tint="var(--qf-ink)" />

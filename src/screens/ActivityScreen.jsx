@@ -119,7 +119,7 @@ function GpsActivity({ stop, onDone, points }) {
       </div>
       <FooterBar>
         <Btn full
-          style={{ background: checkedIn ? '#16A34A' : arrived ? '#22C55E' : 'var(--qf-surface-2)', color: arrived ? '#fff' : 'var(--qf-muted)', transition: 'all .4s' }}
+          style={{ background: checkedIn ? '#16A34A' : arrived ? '#22C55E' : 'var(--qf-surface-2)', color: arrived ? '#fff' : 'var(--qf-muted)', transition: 'background .4s, color .4s' }}
           disabled={!arrived || checkedIn}
           icon={checkedIn ? 'star' : 'check'}
           onClick={() => { setCheckedIn(true); setTimeout(() => onDone(points, true), 700); }}>
