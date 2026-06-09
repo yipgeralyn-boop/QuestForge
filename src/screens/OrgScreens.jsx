@@ -477,7 +477,7 @@ export function OrgDashboard({ race, setRace, go, back, mapStyle, play, setPlay 
           )}
 
           <div style={{ marginBottom: 20 }}>
-            <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 16, color: 'var(--qf-ink)', marginBottom: 10 }}>Broadcast to players</div>
+            <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 16, color: 'var(--qf-ink)', marginBottom: 10 }}>Announcement!</div>
             <div style={{ display: 'flex', gap: 8 }}>
               <input
                 style={{ ...inputStyle, flex: 1 }}

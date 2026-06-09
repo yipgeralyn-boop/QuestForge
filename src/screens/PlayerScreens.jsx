@@ -292,7 +292,7 @@ export function PlayMap({ race, play, go, back, t, mapStyle, onDismissBroadcast 
   }
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
       <div style={{ paddingTop: 52, padding: '52px 18px 10px', display: 'flex', alignItems: 'center', gap: 10 }}>
         <button onClick={() => setConfirmQuit(true)} style={{ width: 38, height: 38, borderRadius: 12, border: 'none', cursor: 'pointer', flexShrink: 0, background: 'var(--qf-surface)', color: 'var(--qf-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px var(--qf-shadow)', WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}>
           <Icon name="chevronL" size={20} stroke={2.6} />
@@ -324,7 +324,10 @@ export function PlayMap({ race, play, go, back, t, mapStyle, onDismissBroadcast 
       {race.broadcast?.message && play.dismissedBroadcastAt !== race.broadcast.sentAt && (
         <div style={{ margin: '0 18px 6px', padding: '11px 14px', borderRadius: 14, background: 'color-mix(in srgb, var(--qf-secondary) 12%, var(--qf-surface))', border: '1px solid color-mix(in srgb, var(--qf-secondary) 28%, var(--qf-line))', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
           <Icon name="bolt" size={15} stroke={2.4} style={{ color: 'var(--qf-secondary)', flexShrink: 0, marginTop: 1 }} />
-          <span style={{ flex: 1, fontFamily: 'var(--qf-body)', fontSize: 13.5, color: 'var(--qf-ink)', lineHeight: 1.4 }}>{race.broadcast.message}</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 11.5, color: 'var(--qf-secondary)', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 2 }}>Announcement!</div>
+            <div style={{ fontFamily: 'var(--qf-body)', fontSize: 13.5, color: 'var(--qf-ink)', lineHeight: 1.4 }}>{race.broadcast.message}</div>
+          </div>
           <button onClick={onDismissBroadcast} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--qf-muted)', padding: 0, flexShrink: 0, display: 'flex' }}>
             <Icon name="close" size={15} stroke={2.4} />
           </button>

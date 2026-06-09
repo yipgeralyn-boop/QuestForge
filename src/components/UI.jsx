@@ -211,7 +211,7 @@ export function Burst({ run }) {
 }
 
 export function ScreenScroll({ children, style = {} }) {
-  return <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', ...style }}>{children}</div>;
+  return <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch', ...style }}>{children}</div>;
 }
 
 export function FooterBar({ children, blur }) {
