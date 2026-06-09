@@ -124,7 +124,7 @@ function QFApp() {
       fontFamily: 'var(--qf-body)',
     }}>
       <ScreenErrorBoundary key={screenKey} onReset={() => go({ name: 'home' })}>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, animation: 'qfScreenIn .32s cubic-bezier(.2,.8,.2,1)' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, opacity: 1, animation: 'qfScreenIn .32s cubic-bezier(.2,.8,.2,1) both' }}>
           {screen}
         </div>
       </ScreenErrorBoundary>
@@ -150,6 +150,23 @@ function QFApp() {
   );
 }
 
+class AppErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { err: null }; }
+  static getDerivedStateFromError(err) { return { err }; }
+  render() {
+    if (this.state.err) {
+      return (
+        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#211a2e', color: '#fff', padding: 24, gap: 12, fontFamily: 'system-ui' }}>
+          <div style={{ fontWeight: 700, fontSize: 18, color: '#FF5C39' }}>App crashed</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#aaa', textAlign: 'center', wordBreak: 'break-all', maxWidth: 340 }}>{String(this.state.err)}</div>
+          <button onClick={() => { this.setState({ err: null }); window.location.reload(); }} style={{ marginTop: 12, padding: '12px 22px', borderRadius: 12, border: 'none', background: '#FF5C39', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>Reload</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   const [scale, setScale] = useState(1);
 
@@ -165,16 +182,18 @@ export default function App() {
   }, []);
 
   return (
-    <div style={{
-      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: '#211a2e',
-      backgroundImage: 'radial-gradient(circle at 20% 15%, #2e2440, transparent 55%), radial-gradient(circle at 85% 85%, #1c2c3a, transparent 55%)',
-    }}>
-      <div style={{ transformOrigin: 'center center', transform: `scale(${scale})` }}>
-        <IOSDevice width={DEVICE_W} height={DEVICE_H}>
-          <QFApp />
-        </IOSDevice>
+    <AppErrorBoundary>
+      <div style={{
+        minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: '#211a2e',
+        backgroundImage: 'radial-gradient(circle at 20% 15%, #2e2440, transparent 55%), radial-gradient(circle at 85% 85%, #1c2c3a, transparent 55%)',
+      }}>
+        <div style={{ transformOrigin: 'center center', transform: `scale(${scale})` }}>
+          <IOSDevice width={DEVICE_W} height={DEVICE_H}>
+            <QFApp />
+          </IOSDevice>
+        </div>
       </div>
-    </div>
+    </AppErrorBoundary>
   );
 }
