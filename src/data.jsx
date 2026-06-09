@@ -125,6 +125,7 @@ const ICON_PATHS = {
   refresh: <><path d="M4 12a8 8 0 0113.7-5.7L20 8M20 4v4h-4M20 12a8 8 0 01-13.7 5.7L4 16M4 20v-4h4" /></>,
   qr: <><rect x="4" y="4" width="6" height="6" rx="1" /><rect x="14" y="4" width="6" height="6" rx="1" /><rect x="4" y="14" width="6" height="6" rx="1" /><path d="M14 14h2v2M20 14v.01M18 18h2v2M14 20h.01" /></>,
   search: <><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35" /></>,
+  copy: <><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></>,
 };
 
 export function Icon({ name, size = 22, stroke = 2, fill = 'none', style = {}, className }) {

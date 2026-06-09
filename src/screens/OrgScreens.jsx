@@ -329,7 +329,12 @@ export function OrgAddActivity({ race, setRace, back, stopId, t, editIndex }) {
 
 export function OrgPublish({ race, setRace, go, back, t, mapStyle }) {
   const [copied, setCopied] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
   const code = 'QF-' + (race.name.replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'RUN') + '-42';
+
+  function copyCode() {
+    navigator.clipboard.writeText(code).then(() => { setCodeCopied(true); setTimeout(() => setCodeCopied(false), 2000); });
+  }
 
   function shareLink() {
     const text = `Join our ${t.questWord}: ${race.name}\nCode: ${code}`;
@@ -365,7 +370,8 @@ export function OrgPublish({ race, setRace, go, back, t, mapStyle }) {
               <div style={{ flex: 1 }}>
                 <div style={{ fontFamily: 'var(--qf-body)', fontSize: 12, color: 'var(--qf-muted)', fontWeight: 600 }}>JOIN CODE</div>
                 <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 26, letterSpacing: 1, color: 'var(--qf-primary)' }}>{code}</div>
-                <div style={{ marginTop: 8 }}>
+                <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+                  <Btn size="sm" variant="soft" icon="copy" onClick={copyCode}>{codeCopied ? 'Copied!' : 'Copy code'}</Btn>
                   <Btn size="sm" variant="soft" icon="share" onClick={shareLink}>{copied ? 'Copied!' : 'Share code'}</Btn>
                 </div>
               </div>
