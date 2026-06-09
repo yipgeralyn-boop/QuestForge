@@ -124,7 +124,7 @@ function QFApp() {
       fontFamily: 'var(--qf-body)',
     }}>
       <ScreenErrorBoundary key={screenKey} onReset={() => go({ name: 'home' })}>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, opacity: 1, animation: 'qfScreenIn .32s cubic-bezier(.2,.8,.2,1) both' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           {screen}
         </div>
       </ScreenErrorBoundary>
