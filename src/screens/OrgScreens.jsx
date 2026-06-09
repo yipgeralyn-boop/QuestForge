@@ -334,7 +334,7 @@ export function OrgPublish({ race, setRace, go, back, t, mapStyle }) {
   function shareLink() {
     const text = `Join our ${t.questWord}: ${race.name}\nCode: ${code}`;
     if (navigator.share) {
-      navigator.share({ title: race.name, text });
+      navigator.share({ title: race.name, text }).catch(() => {});
     } else {
       navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
     }
