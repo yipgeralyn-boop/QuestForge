@@ -5,6 +5,13 @@ import AdventureMap from '../components/AdventureMap.jsx';
 
 const stopPoints = (st) => st.activities.reduce((a, x) => a + (x.points || 0), 0);
 
+function haversineMetres(lat1, lng1, lat2, lng2) {
+  const R = 6371000, toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 function getSimRivals(race, play) {
   if (!play?.startTime || !race?.stops?.length) return [];
   const elapsed = Math.max(0, (Date.now() - play.startTime) / 1000);
@@ -250,6 +257,24 @@ export function PlayMap({ race, play, go, back, t, mapStyle, onDismissBroadcast 
   const allDone = play.completedIds.length >= total;
   const rank = qfRank(race, play);
   const [confirmQuit, setConfirmQuit] = useState(false);
+  const [gpsCheck, setGpsCheck] = useState(null); // null | 'loading' | { type: 'far'|'error'|'denied', dist? }
+  const pendingStop = useRef(null);
+
+  function tryGoToStop(stop) {
+    if (!stop.location) { go({ name: 'activity', stopId: stop.id }); return; }
+    pendingStop.current = stop;
+    setGpsCheck('loading');
+    if (!navigator.geolocation) { setGpsCheck({ type: 'error' }); return; }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const dist = haversineMetres(pos.coords.latitude, pos.coords.longitude, stop.location.lat, stop.location.lng);
+        if (dist <= 50) { setGpsCheck(null); go({ name: 'activity', stopId: pendingStop.current.id }); }
+        else { setGpsCheck({ type: 'far', dist: Math.round(dist) }); }
+      },
+      (err) => setGpsCheck({ type: err.code === 1 ? 'denied' : 'error' }),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
 
   const [secsLeft, setSecsLeft] = useState(() => {
     if (!play.startTime) return race.duration * 60;
@@ -355,7 +380,7 @@ export function PlayMap({ race, play, go, back, t, mapStyle, onDismissBroadcast 
             <AdventureMap stops={race.stops} mapStyle={mapStyle} mode="play" completedIds={play.completedIds} height={220}
               onPinTap={(i) => {
                 const s = race.stops[i];
-                if (!play.completedIds.includes(s.id)) go({ name: 'activity', stopId: s.id });
+                if (!play.completedIds.includes(s.id)) tryGoToStop(s);
               }} />
           </div>
 
@@ -365,7 +390,7 @@ export function PlayMap({ race, play, go, back, t, mapStyle, onDismissBroadcast 
               const isDone = play.completedIds.includes(s.id);
               return (
                 <button key={s.id}
-                  onClick={() => { if (!isDone) go({ name: 'activity', stopId: s.id }); }}
+                  onClick={() => { if (!isDone) tryGoToStop(s); }}
                   style={{
                     textAlign: 'left', padding: '14px 16px', borderRadius: 18, width: '100%',
                     background: isDone ? 'var(--qf-surface-2)' : 'var(--qf-surface)',
@@ -417,6 +442,47 @@ export function PlayMap({ race, play, go, back, t, mapStyle, onDismissBroadcast 
               <Btn full variant="soft" onClick={() => setConfirmQuit(false)}>Keep playing</Btn>
               <Btn full variant="outline" onClick={() => go({ name: 'home' })}>Leave</Btn>
             </div>
+          </div>
+        </div>
+      )}
+
+      {gpsCheck && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end' }}>
+          <div style={{ width: '100%', background: 'var(--qf-bg)', borderRadius: '24px 24px 0 0', padding: '28px 22px 36px', textAlign: 'center' }}>
+            {gpsCheck === 'loading' ? (
+              <>
+                <div style={{ width: 52, height: 52, borderRadius: '50%', border: '3.5px solid var(--qf-line)', borderTopColor: 'var(--qf-primary)', animation: 'qfSpin 0.9s linear infinite', margin: '0 auto 18px' }} />
+                <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 20, color: 'var(--qf-ink)' }}>Checking your location…</div>
+                <div style={{ fontFamily: 'var(--qf-body)', fontSize: 13.5, color: 'var(--qf-muted)', marginTop: 6 }}>Make sure GPS is enabled on your device</div>
+              </>
+            ) : gpsCheck.type === 'far' ? (
+              <>
+                <div style={{ width: 58, height: 58, borderRadius: '50%', background: 'color-mix(in srgb, #E0564B 12%, var(--qf-surface))', color: '#E0564B', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                  <Icon name="location" size={28} stroke={1.8} />
+                </div>
+                <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 20, color: 'var(--qf-ink)' }}>Not there yet!</div>
+                <div style={{ fontFamily: 'var(--qf-body)', fontSize: 14, color: 'var(--qf-muted)', marginTop: 8, marginBottom: 22, lineHeight: 1.5 }}>
+                  You're <strong style={{ color: 'var(--qf-ink)' }}>{gpsCheck.dist >= 1000 ? `${(gpsCheck.dist / 1000).toFixed(1)} km` : `${gpsCheck.dist} m`}</strong> away from this stop.{'\n'}Walk closer and try again.
+                </div>
+                <Btn full variant="primary" icon="location" onClick={() => tryGoToStop(pendingStop.current)}>Check again</Btn>
+                <div style={{ marginTop: 10 }}><Btn full variant="ghost" onClick={() => setGpsCheck(null)}>Cancel</Btn></div>
+              </>
+            ) : (
+              <>
+                <div style={{ width: 58, height: 58, borderRadius: '50%', background: 'color-mix(in srgb, var(--qf-muted) 12%, var(--qf-surface))', color: 'var(--qf-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                  <Icon name="location" size={28} stroke={1.8} />
+                </div>
+                <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 20, color: 'var(--qf-ink)' }}>
+                  {gpsCheck.type === 'denied' ? 'Location access denied' : 'GPS unavailable'}
+                </div>
+                <div style={{ fontFamily: 'var(--qf-body)', fontSize: 14, color: 'var(--qf-muted)', marginTop: 8, marginBottom: 22, lineHeight: 1.5 }}>
+                  {gpsCheck.type === 'denied'
+                    ? 'Enable location access in your browser settings, then try again.'
+                    : "Can't get your location right now. Check your GPS signal and try again."}
+                </div>
+                <Btn full variant="soft" onClick={() => setGpsCheck(null)}>OK</Btn>
+              </>
+            )}
           </div>
         </div>
       )}

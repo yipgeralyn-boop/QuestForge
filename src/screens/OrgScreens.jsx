@@ -172,6 +172,21 @@ export function OrgStop({ race, setRace, go, back, t, mapStyle, stopId }) {
   const delActivity = (k) => update({ activities: stop.activities.filter((_, i) => i !== k) });
   const delStop = () => { setRace({ ...race, stops: race.stops.filter(s => s.id !== stopId) }); back(); };
 
+  const [gpsState, setGpsState] = useState(stop.location ? 'set' : 'idle');
+
+  function captureLocation() {
+    if (!navigator.geolocation) { setGpsState('error'); return; }
+    setGpsState('loading');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        update({ location: { lat: pos.coords.latitude, lng: pos.coords.longitude } });
+        setGpsState('set');
+      },
+      () => setGpsState('error'),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+
   return (
     <>
       <TopBar sub={`Stop ${idx + 1} of ${race.stops.length}`} title={stop.name} onBack={back}
@@ -181,6 +196,37 @@ export function OrgStop({ race, setRace, go, back, t, mapStyle, stopId }) {
           <div style={{ borderRadius: 18, overflow: 'hidden', border: '1px solid var(--qf-line)', marginBottom: 16 }}>
             <AdventureMap stops={race.stops} mapStyle={mapStyle} mode="build" height={150} selectedId={stopId} />
           </div>
+
+          <div style={{ marginBottom: 16, padding: '14px', borderRadius: 16, background: 'var(--qf-surface)', border: '1px solid var(--qf-line)' }}>
+            <div style={{ fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 13, color: 'var(--qf-ink)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Icon name="location" size={14} stroke={2} style={{ color: 'var(--qf-primary)' }} /> GPS check-in
+            </div>
+            {(gpsState === 'set' || stop.location) ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 7, padding: '9px 12px', borderRadius: 10, background: 'color-mix(in srgb, var(--qf-secondary) 12%, var(--qf-surface-2))' }}>
+                  <Icon name="check" size={14} stroke={3} style={{ color: 'var(--qf-secondary)', flexShrink: 0 }} />
+                  <span style={{ fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 13, color: 'var(--qf-secondary)' }}>Location pinned</span>
+                </div>
+                <button onClick={captureLocation} disabled={gpsState === 'loading'} style={{ padding: '9px 13px', borderRadius: 10, border: '1.5px solid var(--qf-line)', background: 'transparent', fontFamily: 'var(--qf-body)', fontWeight: 600, fontSize: 12.5, color: 'var(--qf-muted)', cursor: 'pointer' }}>
+                  {gpsState === 'loading' ? 'Locating…' : 'Recapture'}
+                </button>
+                <button onClick={() => { update({ location: null }); setGpsState('idle'); }} style={{ width: 34, height: 34, borderRadius: 9, border: 'none', background: 'color-mix(in srgb, #E0564B 10%, transparent)', color: '#E0564B', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+                  <Icon name="close" size={14} stroke={2.4} />
+                </button>
+              </div>
+            ) : (
+              <button onClick={captureLocation} disabled={gpsState === 'loading'} style={{ width: '100%', padding: '13px', borderRadius: 12, border: '1.5px dashed var(--qf-line)', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 14, color: gpsState === 'loading' ? 'var(--qf-muted)' : 'var(--qf-primary)', cursor: 'pointer' }}>
+                {gpsState === 'loading'
+                  ? <><div style={{ width: 16, height: 16, borderRadius: '50%', border: '2.5px solid var(--qf-line)', borderTopColor: 'var(--qf-primary)', animation: 'qfSpin 1s linear infinite', flexShrink: 0 }} /> Locating…</>
+                  : <><Icon name="location" size={17} stroke={2.2} /> Pin my current location</>}
+              </button>
+            )}
+            {gpsState === 'error' && <div style={{ marginTop: 8, fontFamily: 'var(--qf-body)', fontSize: 12, color: '#E0564B' }}>GPS unavailable — check browser permissions and try again</div>}
+            <div style={{ marginTop: 8, fontFamily: 'var(--qf-body)', fontSize: 11.5, color: 'var(--qf-muted)', lineHeight: 1.4 }}>
+              {stop.location ? 'Players must be within 50m of this location to unlock the stop.' : 'Stand at the stop location and tap to pin it. Players must be within 50m to check in.'}
+            </div>
+          </div>
+
           <Field label="Stop name"><input style={inputStyle} value={stop.name} onChange={e => update({ name: e.target.value })} /></Field>
           <Field label="Location hint" hint="Players see this as their clue to find the spot">
             <input style={inputStyle} value={stop.hint} onChange={e => update({ hint: e.target.value })} />
@@ -322,13 +368,14 @@ export function OrgAddActivity({ race, setRace, back, stopId, t, editIndex }) {
 
               {(type === 'quiz' || type === 'riddle' || type === 'choice') && (
                 <Field label="Wrong answer penalty" hint="Points deducted from a team's score each time they submit a wrong answer">
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    {[0, 10, 25, 50].map(p => (
-                      <Chip key={p} active={cfg.penalty === p} onClick={() => set('penalty', p)} tint="#E0564B" style={{ flex: 1, justifyContent: 'center', padding: '11px 0' }}>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                    {[0, 25, 50, 100].map(p => (
+                      <Chip key={p} active={cfg.penalty === p} onClick={() => set('penalty', p)} tint="#E0564B" style={{ flex: 1, justifyContent: 'center', padding: '9px 0', fontSize: 12.5 }}>
                         {p === 0 ? 'None' : `−${p}`}
                       </Chip>
                     ))}
                   </div>
+                  <NumericInput style={{ ...inputStyle, borderColor: cfg.penalty > 0 ? 'color-mix(in srgb, #E0564B 50%, var(--qf-line))' : 'var(--qf-line)' }} value={cfg.penalty} onChange={v => set('penalty', v)} />
                 </Field>
               )}
             </div>

@@ -26,4 +26,5 @@ button { font-family: inherit; }
 @keyframes qfFlash { 0% { opacity: 0; } 30% { opacity: 0.95; } 100% { opacity: 0; } }
 @keyframes qfBlink { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
 @keyframes qfConfetti { 0% { transform: translateY(0) rotate(0); opacity: 1; } 85% { opacity: 0.8; } 100% { transform: translateY(720px) rotate(620deg); opacity: 0; } }
+@keyframes qfSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { * { animation-duration: 0.01ms !important; } }
