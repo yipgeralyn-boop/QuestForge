@@ -147,7 +147,7 @@ export function OrgDetails({ race, setRace, back, t }) {
       <ScreenScroll>
         <div style={{ padding: '0 18px 8px' }}>
           <Field label="Name">
-            <input style={inputStyle} value={race.name} onChange={e => setRace({ ...race, name: e.target.value })} />
+            <input style={inputStyle} value={race.name} onChange={e => setRace({ ...race, name: e.target.value, joinCode: null })} />
           </Field>
           <Field label="Tagline">
             <input style={inputStyle} value={race.tagline} onChange={e => setRace({ ...race, tagline: e.target.value })} />
@@ -330,7 +330,16 @@ export function OrgAddActivity({ race, setRace, back, stopId, t, editIndex }) {
 export function OrgPublish({ race, setRace, go, back, t, mapStyle }) {
   const [copied, setCopied] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
-  const code = 'QF-' + (race.name.replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'RUN') + '-42';
+
+  useEffect(() => {
+    if (!race.joinCode) {
+      const prefix = race.name.replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'RUN';
+      const suffix = Math.floor(1000 + Math.random() * 9000);
+      setRace(r => ({ ...r, joinCode: `QF-${prefix}-${suffix}` }));
+    }
+  }, []);
+
+  const code = race.joinCode || ('QF-' + (race.name.replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'RUN') + '-...');
 
   function copyCode() {
     navigator.clipboard.writeText(code).then(() => { setCodeCopied(true); setTimeout(() => setCodeCopied(false), 2000); });
