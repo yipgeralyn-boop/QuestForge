@@ -366,7 +366,7 @@ export function OrgPublish({ race, setRace, go, back, t, mapStyle }) {
                 <div style={{ fontFamily: 'var(--qf-body)', fontSize: 12, color: 'var(--qf-muted)', fontWeight: 600 }}>JOIN CODE</div>
                 <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 26, letterSpacing: 1, color: 'var(--qf-primary)' }}>{code}</div>
                 <div style={{ marginTop: 8 }}>
-                  <Btn size="sm" variant="soft" icon="share" onClick={shareLink}>{copied ? 'Copied!' : 'Share link'}</Btn>
+                  <Btn size="sm" variant="soft" icon="share" onClick={shareLink}>{copied ? 'Copied!' : 'Share code'}</Btn>
                 </div>
               </div>
             </div>

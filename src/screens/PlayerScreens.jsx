@@ -45,7 +45,7 @@ export function PlayJoin({ go, back, t, race }) {
               <Icon name="pin" size={38} stroke={1.8} style={{ color: 'var(--qf-primary)' }} />
             </div>
             <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 20, color: 'var(--qf-ink)' }}>Enter your quest code</div>
-            <div style={{ fontFamily: 'var(--qf-body)', fontSize: 14, color: 'var(--qf-muted)', marginTop: 6 }}>Get the code from your organiser</div>
+            <div style={{ fontFamily: 'var(--qf-body)', fontSize: 14, color: 'var(--qf-muted)', marginTop: 6 }}>One team leader per team — get the code from your organiser</div>
           </div>
 
           <div style={{ animation: error ? 'qfShake .4s ease' : 'none' }}>
