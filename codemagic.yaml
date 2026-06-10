@@ -34,6 +34,18 @@ workflows:
           /usr/libexec/PlistBuddy -c "Add :NSLocationWhenInUseUsageDescription string 'QuestForge uses your location to verify you have reached each stop.'" "$PLIST"
           /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string 'QuestForge uses your camera to take photos for challenges.'" "$PLIST"
 
+      - name: Initialize keychain
+        script: keychain initialize
+
+      - name: Fetch signing files
+        script: |
+          app-store-connect fetch-signing-files com.geralyn.questforge \
+            --type IOS_APP_STORE \
+            --create
+
+      - name: Add certificates to keychain
+        script: keychain add-certificates
+
       - name: Set up code signing
         script: xcode-project use-profiles
 
