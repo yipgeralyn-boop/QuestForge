@@ -8,9 +8,6 @@ workflows:
       app_store_connect: App Store Connect API Key
 
     environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.geralyn.questforge
       node: latest
       xcode: latest
       cocoapods: default
