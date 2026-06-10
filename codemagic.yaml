@@ -10,7 +10,7 @@ workflows:
     environment:
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: com.questforge.app
+        bundle_identifier: com.geralyn.questforge
       node: latest
       xcode: latest
       cocoapods: default

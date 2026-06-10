@@ -1,5 +1,5 @@
 {
-  "appId": "com.questforge.app",
+  "appId": "com.geralyn.questforge",
   "appName": "QuestForge",
   "webDir": "dist",
   "ios": {
