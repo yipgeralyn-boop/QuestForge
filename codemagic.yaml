@@ -23,7 +23,7 @@ workflows:
         script: npx cap add ios
 
       - name: Install CocoaPods
-        script: cd ios && pod install
+        script: cd ios/App && pod install
 
       - name: Add privacy descriptions to Info.plist
         script: |
