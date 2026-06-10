@@ -358,16 +358,8 @@ export function OrgAddActivity({ race, setRace, back, stopId, t, editIndex }) {
                 <input style={inputStyle} value={cfg.clue || ''} onChange={e => set('clue', e.target.value)} placeholder="e.g. Look for the plaque near the entrance" />
               </Field>
 
-              <Field label="Points">
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {[50, 100, 150, 200].map(p => (
-                    <Chip key={p} active={cfg.points === p} onClick={() => set('points', p)} tint="var(--qf-primary)" style={{ flex: 1, justifyContent: 'center', padding: '11px 0' }}>{p}</Chip>
-                  ))}
-                </div>
-              </Field>
-
               {(type === 'quiz' || type === 'riddle' || type === 'choice') && (
-                <Field label="Wrong answer penalty" hint="Points deducted from a team's score each time they submit a wrong answer">
+                <Field label="Wrong answer penalty" hint="Points deducted each time a wrong answer is submitted — set to 0 to disable">
                   <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
                     {[0, 25, 50, 100].map(p => (
                       <Chip key={p} active={cfg.penalty === p} onClick={() => set('penalty', p)} tint="#E0564B" style={{ flex: 1, justifyContent: 'center', padding: '9px 0', fontSize: 12.5 }}>
@@ -375,9 +367,17 @@ export function OrgAddActivity({ race, setRace, back, stopId, t, editIndex }) {
                       </Chip>
                     ))}
                   </div>
-                  <NumericInput style={{ ...inputStyle, borderColor: cfg.penalty > 0 ? 'color-mix(in srgb, #E0564B 50%, var(--qf-line))' : 'var(--qf-line)' }} value={cfg.penalty} onChange={v => set('penalty', v)} />
+                  <NumericInput style={{ ...inputStyle, borderColor: cfg.penalty > 0 ? 'color-mix(in srgb, #E0564B 45%, var(--qf-line))' : 'var(--qf-line)' }} value={cfg.penalty} onChange={v => set('penalty', v)} />
                 </Field>
               )}
+
+              <Field label="Points">
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {[50, 100, 150, 200].map(p => (
+                    <Chip key={p} active={cfg.points === p} onClick={() => set('points', p)} tint="var(--qf-primary)" style={{ flex: 1, justifyContent: 'center', padding: '11px 0' }}>{p}</Chip>
+                  ))}
+                </div>
+              </Field>
             </div>
           )}
         </div>

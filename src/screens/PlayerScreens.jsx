@@ -272,7 +272,7 @@ export function PlayMap({ race, play, go, back, t, mapStyle, onDismissBroadcast 
         else { setGpsCheck({ type: 'far', dist: Math.round(dist) }); }
       },
       (err) => setGpsCheck({ type: err.code === 1 ? 'denied' : 'error' }),
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 12000 }
     );
   }
 
@@ -462,10 +462,14 @@ export function PlayMap({ race, play, go, back, t, mapStyle, onDismissBroadcast 
                 </div>
                 <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 20, color: 'var(--qf-ink)' }}>Not there yet!</div>
                 <div style={{ fontFamily: 'var(--qf-body)', fontSize: 14, color: 'var(--qf-muted)', marginTop: 8, marginBottom: 22, lineHeight: 1.5 }}>
-                  You're <strong style={{ color: 'var(--qf-ink)' }}>{gpsCheck.dist >= 1000 ? `${(gpsCheck.dist / 1000).toFixed(1)} km` : `${gpsCheck.dist} m`}</strong> away from this stop.{'\n'}Walk closer and try again.
+                  You're <strong style={{ color: 'var(--qf-ink)' }}>{gpsCheck.dist >= 1000 ? `${(gpsCheck.dist / 1000).toFixed(1)} km` : `${gpsCheck.dist} m`}</strong> away from this stop.<br />Walk closer and try again.
                 </div>
-                <Btn full variant="primary" icon="location" onClick={() => tryGoToStop(pendingStop.current)}>Check again</Btn>
-                <div style={{ marginTop: 10 }}><Btn full variant="ghost" onClick={() => setGpsCheck(null)}>Cancel</Btn></div>
+                <button onClick={() => { if (pendingStop.current) tryGoToStop(pendingStop.current); }} style={{ width: '100%', padding: '15px', borderRadius: 16, border: 'none', background: 'var(--qf-primary)', color: 'var(--qf-primary-ink)', fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 17, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, touchAction: 'manipulation' }}>
+                  <Icon name="location" size={19} stroke={2.4} /> Check again
+                </button>
+                <button onClick={() => setGpsCheck(null)} style={{ width: '100%', marginTop: 10, padding: '13px', borderRadius: 16, border: 'none', background: 'transparent', color: 'var(--qf-muted)', fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 15, cursor: 'pointer', touchAction: 'manipulation' }}>
+                  Cancel
+                </button>
               </>
             ) : (
               <>
@@ -480,7 +484,9 @@ export function PlayMap({ race, play, go, back, t, mapStyle, onDismissBroadcast 
                     ? 'Enable location access in your browser settings, then try again.'
                     : "Can't get your location right now. Check your GPS signal and try again."}
                 </div>
-                <Btn full variant="soft" onClick={() => setGpsCheck(null)}>OK</Btn>
+                <button onClick={() => setGpsCheck(null)} style={{ width: '100%', padding: '15px', borderRadius: 16, border: 'none', background: 'var(--qf-surface-2)', color: 'var(--qf-ink)', fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 16, cursor: 'pointer', touchAction: 'manipulation' }}>
+                  OK
+                </button>
               </>
             )}
           </div>
