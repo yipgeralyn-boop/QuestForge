@@ -141,6 +141,7 @@ export function Icon({ name, size = 22, stroke = 2, fill = 'none', style = {}, c
 }
 
 export const ACTIVITY_META = {
+  checkin: { label: 'Check in', verb: 'Check in', icon: 'location', tint: '#22C55E', blurb: 'Award points for arriving' },
   photo: { label: 'Photo', verb: 'Snap it', icon: 'camera', tint: 'var(--qf-primary)', blurb: 'Capture the challenge' },
   quiz: { label: 'Quiz', verb: 'Answer', icon: 'quiz', tint: 'var(--qf-accent)', blurb: 'Type the right answer' },
   choice: { label: 'Multiple choice', verb: 'Choose', icon: 'choice', tint: '#7C6CF6', blurb: 'Pick the correct option' },

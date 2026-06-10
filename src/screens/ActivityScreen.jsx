@@ -13,6 +13,36 @@ function ActHeader({ stop, idx, total, onBack, m }) {
   );
 }
 
+function CheckinActivity({ points, onDone }) {
+  const [done, setDone] = useState(false);
+
+  function checkin() {
+    setDone(true);
+    setTimeout(() => onDone(points), 900);
+  }
+
+  return (
+    <ScreenScroll>
+      <div style={{ padding: '48px 28px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+        <div style={{ width: 86, height: 86, borderRadius: '50%', background: done ? 'color-mix(in srgb, #22C55E 18%, var(--qf-surface))' : 'color-mix(in srgb, #22C55E 12%, var(--qf-surface))', color: '#22C55E', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20, transition: 'background .3s', boxShadow: done ? '0 0 0 8px color-mix(in srgb, #22C55E 10%, transparent)' : 'none' }}>
+          <Icon name={done ? 'check' : 'location'} size={40} stroke={done ? 3 : 1.8} />
+        </div>
+        <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 26, color: 'var(--qf-ink)', marginBottom: 8 }}>
+          {done ? "You're here!" : 'Check in at this stop'}
+        </div>
+        <div style={{ fontFamily: 'var(--qf-body)', fontSize: 14.5, color: 'var(--qf-muted)', lineHeight: 1.5, maxWidth: 260 }}>
+          {done ? `+${points} pts awarded` : 'Tap the button to confirm your arrival and earn points.'}
+        </div>
+      </div>
+      <FooterBar>
+        <Btn full variant="primary" disabled={done} icon={done ? 'check' : 'location'} style={{ background: '#22C55E', boxShadow: '0 8px 18px -6px #22C55E' }} onClick={checkin}>
+          {done ? 'Checked in!' : `Check in · +${points} pts`}
+        </Btn>
+      </FooterBar>
+    </ScreenScroll>
+  );
+}
+
 function PhotoActivity({ stop, prompt, points, onDone, onSubmit, onBackToMap }) {
   const [phase, setPhase] = useState('aim');
   const [photoUrl, setPhotoUrl] = useState(null);
@@ -269,6 +299,7 @@ export default function PlayActivity({ stop, onStopDone, onBack, onPhotoSubmit, 
   return (
     <>
       <ActHeader stop={stop} idx={i} total={acts.length} onBack={onBack} m={m} />
+      {a.type === 'checkin' && <CheckinActivity key={i} points={a.points} onDone={next} />}
       {a.type === 'photo' && <PhotoActivity key={i} stop={stop} prompt={a.prompt} points={a.points} onDone={next} onSubmit={onPhotoSubmit || (() => {})} onBackToMap={onBack} />}
       {a.type === 'quiz' && <TextActivity key={i} kind="quiz" question={a.question} answer={a.answer} clue={a.clue} points={a.points} penalty={a.penalty ?? 25} onDone={next} onWrongAnswer={onWrongAnswer} onHintUsed={onHintUsed} />}
       {a.type === 'riddle' && <TextActivity key={i} kind="riddle" question={a.riddle} answer={a.answer} clue={a.clue} points={a.points} penalty={a.penalty ?? 25} onDone={next} onWrongAnswer={onWrongAnswer} onHintUsed={onHintUsed} />}

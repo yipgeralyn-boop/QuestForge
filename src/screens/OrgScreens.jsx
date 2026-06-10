@@ -299,6 +299,7 @@ export function OrgAddActivity({ race, setRace, back, stopId, t, editIndex }) {
 
   function commit() {
     let a = { type, points: cfg.points };
+    if (type === 'checkin') { /* points only — no extra config */ }
     if (type === 'photo') a.prompt = cfg.prompt || 'Snap a creative team photo here';
     if (type === 'quiz') { a.question = cfg.question || 'Your question'; a.answer = cfg.answer || ''; a.penalty = cfg.penalty ?? 25; }
     if (type === 'choice') { a.question = cfg.question || 'Your question'; a.options = cfg.options.filter(Boolean); a.correctIndex = cfg.correctIndex; a.penalty = cfg.penalty ?? 25; }
