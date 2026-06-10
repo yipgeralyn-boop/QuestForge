@@ -6,6 +6,13 @@ const norm = (s) => (s || '').trim().toLowerCase().replace(/^(a|an|the)\s+/, '')
 
 const HINT_COST = 50;
 
+function haversineMetres(lat1, lng1, lat2, lng2) {
+  const R = 6371000, toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 function ActHeader({ stop, idx, total, onBack, m }) {
   return (
     <TopBar sub={stop.name} title={m.label} onBack={onBack}
@@ -13,31 +20,76 @@ function ActHeader({ stop, idx, total, onBack, m }) {
   );
 }
 
-function CheckinActivity({ points, onDone }) {
-  const [done, setDone] = useState(false);
+function CheckinActivity({ stop, points, onDone }) {
+  const [phase, setPhase] = useState('idle'); // idle | checking | done | far | error | denied
+  const [dist, setDist] = useState(null);
 
-  function checkin() {
-    setDone(true);
-    setTimeout(() => onDone(points), 900);
+  function attempt() {
+    if (!stop.location) {
+      setPhase('done');
+      setTimeout(() => onDone(points), 900);
+      return;
+    }
+    setPhase('checking');
+    if (!navigator.geolocation) { setPhase('error'); return; }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const d = haversineMetres(pos.coords.latitude, pos.coords.longitude, stop.location.lat, stop.location.lng);
+        if (d <= 50) { setPhase('done'); setTimeout(() => onDone(points), 900); }
+        else { setDist(Math.round(d)); setPhase('far'); }
+      },
+      (err) => setPhase(err.code === 1 ? 'denied' : 'error'),
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 12000 }
+    );
   }
+
+  const icon = phase === 'done' ? 'check' : phase === 'far' ? 'close' : 'location';
+  const iconColor = phase === 'done' ? '#22C55E' : phase === 'far' ? '#E0564B' : '#22C55E';
 
   return (
     <ScreenScroll>
       <div style={{ padding: '48px 28px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-        <div style={{ width: 86, height: 86, borderRadius: '50%', background: done ? 'color-mix(in srgb, #22C55E 18%, var(--qf-surface))' : 'color-mix(in srgb, #22C55E 12%, var(--qf-surface))', color: '#22C55E', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20, transition: 'background .3s', boxShadow: done ? '0 0 0 8px color-mix(in srgb, #22C55E 10%, transparent)' : 'none' }}>
-          <Icon name={done ? 'check' : 'location'} size={40} stroke={done ? 3 : 1.8} />
+        <div style={{ width: 86, height: 86, borderRadius: '50%', background: `color-mix(in srgb, ${iconColor} 12%, var(--qf-surface))`, color: iconColor, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20, transition: 'all .3s', boxShadow: phase === 'done' ? `0 0 0 10px color-mix(in srgb, ${iconColor} 10%, transparent)` : 'none' }}>
+          {phase === 'checking'
+            ? <div style={{ width: 40, height: 40, borderRadius: '50%', border: '4px solid var(--qf-line)', borderTopColor: '#22C55E', animation: 'qfSpin 0.9s linear infinite' }} />
+            : <Icon name={icon} size={40} stroke={phase === 'done' ? 3 : 1.8} />}
         </div>
+
         <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 26, color: 'var(--qf-ink)', marginBottom: 8 }}>
-          {done ? "You're here!" : 'Check in at this stop'}
+          {phase === 'idle' && 'Check in at this stop'}
+          {phase === 'checking' && 'Checking location…'}
+          {phase === 'done' && "You're here!"}
+          {phase === 'far' && 'Not close enough'}
+          {(phase === 'error' || phase === 'denied') && (phase === 'denied' ? 'Location denied' : 'GPS unavailable')}
         </div>
-        <div style={{ fontFamily: 'var(--qf-body)', fontSize: 14.5, color: 'var(--qf-muted)', lineHeight: 1.5, maxWidth: 260 }}>
-          {done ? `+${points} pts awarded` : 'Tap the button to confirm your arrival and earn points.'}
+
+        <div style={{ fontFamily: 'var(--qf-body)', fontSize: 14.5, color: 'var(--qf-muted)', lineHeight: 1.5, maxWidth: 280 }}>
+          {phase === 'idle' && (stop.location ? 'Your location will be verified when you check in.' : 'Tap the button to confirm your arrival and earn points.')}
+          {phase === 'checking' && 'Hold still while we verify your position…'}
+          {phase === 'done' && `+${points} pts awarded`}
+          {phase === 'far' && <>You're <strong style={{ color: 'var(--qf-ink)' }}>{dist >= 1000 ? `${(dist / 1000).toFixed(1)} km` : `${dist} m`}</strong> away. Walk closer to this stop and try again.</>}
+          {phase === 'error' && "Can't get your GPS signal. Check your settings and try again."}
+          {phase === 'denied' && 'Enable location access in your browser settings, then try again.'}
         </div>
       </div>
+
       <FooterBar>
-        <Btn full variant="primary" disabled={done} icon={done ? 'check' : 'location'} style={{ background: '#22C55E', boxShadow: '0 8px 18px -6px #22C55E' }} onClick={checkin}>
-          {done ? 'Checked in!' : `Check in · +${points} pts`}
-        </Btn>
+        {phase === 'idle' && (
+          <button onClick={attempt} style={{ flex: 1, padding: '15px', borderRadius: 16, border: 'none', background: '#22C55E', color: '#fff', fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 17, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, touchAction: 'manipulation', boxShadow: '0 8px 18px -6px #22C55E' }}>
+            <Icon name="location" size={19} stroke={2.2} /> Check in · +{points} pts
+          </button>
+        )}
+        {phase === 'checking' && (
+          <Btn full variant="soft" disabled>Checking location…</Btn>
+        )}
+        {phase === 'done' && (
+          <Btn full variant="soft" disabled icon="check">Checked in!</Btn>
+        )}
+        {(phase === 'far' || phase === 'error' || phase === 'denied') && (
+          <button onClick={attempt} style={{ flex: 1, padding: '15px', borderRadius: 16, border: 'none', background: '#22C55E', color: '#fff', fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 17, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, touchAction: 'manipulation', boxShadow: '0 8px 18px -6px #22C55E' }}>
+            <Icon name="location" size={19} stroke={2.2} /> Try again
+          </button>
+        )}
       </FooterBar>
     </ScreenScroll>
   );
@@ -299,7 +351,7 @@ export default function PlayActivity({ stop, onStopDone, onBack, onPhotoSubmit, 
   return (
     <>
       <ActHeader stop={stop} idx={i} total={acts.length} onBack={onBack} m={m} />
-      {a.type === 'checkin' && <CheckinActivity key={i} points={a.points} onDone={next} />}
+      {a.type === 'checkin' && <CheckinActivity key={i} stop={stop} points={a.points} onDone={next} />}
       {a.type === 'photo' && <PhotoActivity key={i} stop={stop} prompt={a.prompt} points={a.points} onDone={next} onSubmit={onPhotoSubmit || (() => {})} onBackToMap={onBack} />}
       {a.type === 'quiz' && <TextActivity key={i} kind="quiz" question={a.question} answer={a.answer} clue={a.clue} points={a.points} penalty={a.penalty ?? 25} onDone={next} onWrongAnswer={onWrongAnswer} onHintUsed={onHintUsed} />}
       {a.type === 'riddle' && <TextActivity key={i} kind="riddle" question={a.riddle} answer={a.answer} clue={a.clue} points={a.points} penalty={a.penalty ?? 25} onDone={next} onWrongAnswer={onWrongAnswer} onHintUsed={onHintUsed} />}
