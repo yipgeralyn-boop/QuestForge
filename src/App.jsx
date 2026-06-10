@@ -53,7 +53,13 @@ function QFApp() {
   const [stack, setStack] = useState([{ name: 'home' }]);
   const cur = stack[stack.length - 1];
 
-  const [play, setPlay] = useState({ completedIds: [], score: 0, lastEarned: 0, lastCompletedName: '', teamName: '', roster: [] });
+  const [play, setPlay] = useState(() => {
+    try {
+      const saved = localStorage.getItem('qf-play');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return { completedIds: [], score: 0, lastEarned: 0, lastCompletedName: '', teamName: '', roster: [] };
+  });
   const prevRankRef = useRef(null);
 
   const theme = THEMES[t.theme] || THEMES.sunset;
@@ -71,6 +77,10 @@ function QFApp() {
     try { localStorage.setItem('qf-race', JSON.stringify(race)); } catch {}
   }, [race]);
 
+  useEffect(() => {
+    try { localStorage.setItem('qf-play', JSON.stringify(play)); } catch {}
+  }, [play]);
+
   function go(scr) {
     if (scr.name === 'home') { setStack([{ name: 'home' }]); return; }
     if (scr.name === 'play') {
@@ -86,8 +96,16 @@ function QFApp() {
   function back() { setStack(s => s.length > 1 ? s.slice(0, -1) : s); }
 
   function startPlay() {
-    setPlay({ completedIds: [], score: 0, lastEarned: 0, lastCompletedName: '', startTime: Date.now() });
+    const fresh = { completedIds: [], score: 0, lastEarned: 0, lastCompletedName: '', startTime: Date.now(), teamName: play.teamName, roster: play.roster };
+    setPlay(fresh);
+    try { localStorage.setItem('qf-play', JSON.stringify(fresh)); } catch {}
     prevRankRef.current = null;
+  }
+
+  function clearPlay() {
+    const blank = { completedIds: [], score: 0, lastEarned: 0, lastCompletedName: '', teamName: '', roster: [] };
+    setPlay(blank);
+    try { localStorage.removeItem('qf-play'); } catch {}
   }
 
   function finishStop(earned, stopId, stopName) {
@@ -100,7 +118,7 @@ function QFApp() {
 
   let screen = null;
   switch (cur.name) {
-    case 'home': screen = <HomeScreen {...common} />; break;
+    case 'home': screen = <HomeScreen {...common} play={play} onDismissResume={clearPlay} />; break;
     case 'orgBuilder': screen = <OrgBuilder {...common} />; break;
     case 'orgDetails': screen = <OrgDetails {...common} />; break;
     case 'orgStop': screen = <OrgStop {...common} stopId={cur.stopId} />; break;

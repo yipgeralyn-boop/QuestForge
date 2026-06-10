@@ -1,7 +1,12 @@
 import { Icon, qfWord } from '../data.jsx';
 import { ScreenScroll } from '../components/UI.jsx';
 
-export default function HomeScreen({ race, go, t, mapStyle }) {
+export default function HomeScreen({ race, go, t, mapStyle, play, onDismissResume }) {
+  const inProgress = play?.startTime && play.completedIds.length < race.stops.length && play.teamName;
+  const timeElapsed = play?.startTime ? Math.floor((Date.now() - play.startTime) / 1000) : 0;
+  const timeLeft = Math.max(0, (race.duration || 60) * 60 - timeElapsed);
+  const minsLeft = Math.floor(timeLeft / 60);
+
   return (
     <ScreenScroll>
       <div style={{ position: 'relative', overflow: 'hidden' }}>
@@ -23,6 +28,28 @@ export default function HomeScreen({ race, go, t, mapStyle }) {
 
         {/* cards overlapping hero */}
         <div style={{ padding: '0 18px', marginTop: -64, position: 'relative' }}>
+
+          {inProgress && (
+            <div style={{ marginBottom: 12, padding: 18, borderRadius: 22, background: 'var(--qf-secondary)', boxShadow: '0 12px 30px -12px var(--qf-secondary)', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle at 90% 10%, rgba(255,255,255,.18), transparent 45%)' }} />
+              <div style={{ position: 'relative' }}>
+                <div style={{ fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 11.5, letterSpacing: 0.6, textTransform: 'uppercase', color: 'rgba(255,255,255,0.75)', marginBottom: 4 }}>Quest in progress</div>
+                <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 600, fontSize: 19, color: '#fff', marginBottom: 2 }}>{play.teamName}</div>
+                <div style={{ fontFamily: 'var(--qf-body)', fontSize: 13, color: 'rgba(255,255,255,0.8)', marginBottom: 14 }}>
+                  {play.completedIds.length}/{race.stops.length} stops · {play.score} pts · {minsLeft > 0 ? `~${minsLeft} min left` : 'time may be up'}
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => go({ name: 'play' })} style={{ flex: 1, padding: '12px', borderRadius: 13, border: 'none', background: '#fff', color: 'var(--qf-secondary)', fontFamily: 'var(--qf-display)', fontWeight: 700, fontSize: 15, cursor: 'pointer', touchAction: 'manipulation' }}>
+                    Resume quest
+                  </button>
+                  <button onClick={onDismissResume} style={{ width: 44, height: 44, borderRadius: 12, border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', touchAction: 'manipulation', flexShrink: 0 }}>
+                    <Icon name="close" size={16} stroke={2.5} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <button onClick={() => go({ name: 'orgBuilder' })} style={bigCard('var(--qf-surface)')}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
               <div style={iconWrap('var(--qf-primary)')}><Icon name="edit" size={26} stroke={2.3} /></div>

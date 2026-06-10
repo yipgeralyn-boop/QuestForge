@@ -3,6 +3,31 @@ import { Icon, ACTIVITY_META, qfWord, makeId } from '../data.jsx';
 import { Btn, TopBar, Chip, Stat, Progress, Sheet, Field, inputStyle, ScreenScroll, FooterBar } from '../components/UI.jsx';
 import AdventureMap from '../components/AdventureMap.jsx';
 
+function AnswerTester({ answer, testVal, setTestVal }) {
+  const matched = testVal ? testMatch(testVal, answer) : null;
+  return (
+    <div style={{ marginBottom: 14, padding: '12px 14px', borderRadius: 14, background: 'var(--qf-surface-2)', border: '1px solid var(--qf-line)' }}>
+      <div style={{ fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 12.5, color: 'var(--qf-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>Test your answer</div>
+      <input
+        style={{ ...inputStyle, background: 'var(--qf-bg)', fontSize: 14 }}
+        value={testVal}
+        onChange={e => setTestVal(e.target.value)}
+        placeholder="Type any answer to check if it would match…"
+      />
+      {testVal ? (
+        <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 7, fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 13, color: matched ? 'var(--qf-secondary)' : '#E0564B' }}>
+          <Icon name={matched ? 'check' : 'close'} size={15} stroke={2.8} />
+          {matched ? 'Would be accepted' : 'Would not match — try a closer spelling'}
+        </div>
+      ) : (
+        <div style={{ marginTop: 6, fontFamily: 'var(--qf-body)', fontSize: 12, color: 'var(--qf-muted)', lineHeight: 1.4 }}>
+          Matching ignores case, spaces and articles (a / an / the)
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NumericInput({ style, value, onChange }) {
   const [str, setStr] = useState(String(value ?? ''));
   const committed = useRef(value);
@@ -281,10 +306,17 @@ export function OrgStop({ race, setRace, go, back, t, mapStyle, stopId }) {
   );
 }
 
+const normAnswer = (s) => (s || '').trim().toLowerCase().replace(/^(a|an|the)\s+/, '').replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ');
+const testMatch = (val, answer) => {
+  const v = normAnswer(val), a = normAnswer(answer);
+  return v === a || (a.length > 2 && v.includes(a));
+};
+
 export function OrgAddActivity({ race, setRace, back, stopId, t, editIndex }) {
   const stop = race.stops.find(s => s.id === stopId);
   const existing = editIndex != null ? stop?.activities[editIndex] : null;
   const [type, setType] = useState(existing?.type ?? null);
+  const [testVal, setTestVal] = useState('');
   const [cfg, setCfg] = useState(() => existing ? {
     points: existing.points || 100,
     penalty: existing.penalty ?? 25,
@@ -348,11 +380,13 @@ export function OrgAddActivity({ race, setRace, back, stopId, t, editIndex }) {
               {type === 'photo' && <Field label="Photo prompt"><textarea style={{ ...inputStyle, minHeight: 76, resize: 'none' }} value={cfg.prompt || ''} onChange={e => set('prompt', e.target.value)} placeholder="e.g. Whole team in a superhero pose by the mural" /></Field>}
               {type === 'quiz' && <>
                 <Field label="Question"><input style={inputStyle} value={cfg.question || ''} onChange={e => set('question', e.target.value)} placeholder="What does the plaque say the year is?" /></Field>
-                <Field label="Correct answer"><input style={inputStyle} value={cfg.answer || ''} onChange={e => set('answer', e.target.value)} placeholder="1898" /></Field>
+                <Field label="Correct answer"><input style={inputStyle} value={cfg.answer || ''} onChange={e => { set('answer', e.target.value); setTestVal(''); }} placeholder="1898" /></Field>
+                {cfg.answer && <AnswerTester answer={cfg.answer} testVal={testVal} setTestVal={setTestVal} />}
               </>}
               {type === 'riddle' && <>
                 <Field label="Riddle"><textarea style={{ ...inputStyle, minHeight: 76, resize: 'none' }} value={cfg.riddle || ''} onChange={e => set('riddle', e.target.value)} placeholder="I have hands but cannot clap…" /></Field>
-                <Field label="Answer"><input style={inputStyle} value={cfg.answer || ''} onChange={e => set('answer', e.target.value)} placeholder="a clock" /></Field>
+                <Field label="Answer"><input style={inputStyle} value={cfg.answer || ''} onChange={e => { set('answer', e.target.value); setTestVal(''); }} placeholder="a clock" /></Field>
+                {cfg.answer && <AnswerTester answer={cfg.answer} testVal={testVal} setTestVal={setTestVal} />}
               </>}
               {type === 'choice' && <>
                 <Field label="Question"><input style={inputStyle} value={cfg.question || ''} onChange={e => set('question', e.target.value)} placeholder="Which stall is the oldest?" /></Field>
