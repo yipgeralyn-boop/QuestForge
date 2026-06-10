@@ -173,6 +173,7 @@ export function OrgStop({ race, setRace, go, back, t, mapStyle, stopId }) {
   const delStop = () => { setRace({ ...race, stops: race.stops.filter(s => s.id !== stopId) }); back(); };
 
   const [gpsState, setGpsState] = useState(stop.location ? 'set' : 'idle');
+  const [justSaved, setJustSaved] = useState(false);
 
   function captureLocation() {
     if (!navigator.geolocation) { setGpsState('error'); return; }
@@ -181,9 +182,11 @@ export function OrgStop({ race, setRace, go, back, t, mapStyle, stopId }) {
       (pos) => {
         update({ location: { lat: pos.coords.latitude, lng: pos.coords.longitude } });
         setGpsState('set');
+        setJustSaved(true);
+        setTimeout(() => setJustSaved(false), 2000);
       },
       () => setGpsState('error'),
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 12000 }
     );
   }
 
@@ -201,21 +204,29 @@ export function OrgStop({ race, setRace, go, back, t, mapStyle, stopId }) {
             <div style={{ fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 13, color: 'var(--qf-ink)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
               <Icon name="location" size={14} stroke={2} style={{ color: 'var(--qf-primary)' }} /> GPS check-in
             </div>
-            {(gpsState === 'set' || stop.location) ? (
+            {(gpsState === 'set' || gpsState === 'loading' || stop.location) ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 7, padding: '9px 12px', borderRadius: 10, background: 'color-mix(in srgb, var(--qf-secondary) 12%, var(--qf-surface-2))' }}>
-                  <Icon name="check" size={14} stroke={3} style={{ color: 'var(--qf-secondary)', flexShrink: 0 }} />
-                  <span style={{ fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 13, color: 'var(--qf-secondary)' }}>Location pinned</span>
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 7, padding: '9px 12px', borderRadius: 10, background: justSaved ? 'color-mix(in srgb, var(--qf-primary) 12%, var(--qf-surface-2))' : 'color-mix(in srgb, var(--qf-secondary) 12%, var(--qf-surface-2))', transition: 'background .3s' }}>
+                  {gpsState === 'loading'
+                    ? <div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid var(--qf-line)', borderTopColor: 'var(--qf-secondary)', animation: 'qfSpin 0.9s linear infinite', flexShrink: 0 }} />
+                    : <Icon name="check" size={14} stroke={3} style={{ color: justSaved ? 'var(--qf-primary)' : 'var(--qf-secondary)', flexShrink: 0 }} />}
+                  <span style={{ fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 13, color: justSaved ? 'var(--qf-primary)' : 'var(--qf-secondary)' }}>
+                    {gpsState === 'loading' ? 'Locating…' : justSaved ? 'Location updated!' : 'Location pinned'}
+                  </span>
                 </div>
-                <button onClick={captureLocation} disabled={gpsState === 'loading'} style={{ padding: '9px 13px', borderRadius: 10, border: '1.5px solid var(--qf-line)', background: 'transparent', fontFamily: 'var(--qf-body)', fontWeight: 600, fontSize: 12.5, color: 'var(--qf-muted)', cursor: 'pointer' }}>
-                  {gpsState === 'loading' ? 'Locating…' : 'Recapture'}
-                </button>
-                <button onClick={() => { update({ location: null }); setGpsState('idle'); }} style={{ width: 34, height: 34, borderRadius: 9, border: 'none', background: 'color-mix(in srgb, #E0564B 10%, transparent)', color: '#E0564B', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
-                  <Icon name="close" size={14} stroke={2.4} />
-                </button>
+                {gpsState !== 'loading' && (
+                  <>
+                    <button onClick={captureLocation} style={{ padding: '9px 13px', borderRadius: 10, border: '1.5px solid var(--qf-line)', background: 'transparent', fontFamily: 'var(--qf-body)', fontWeight: 600, fontSize: 12.5, color: 'var(--qf-muted)', cursor: 'pointer', touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}>
+                      Recapture
+                    </button>
+                    <button onClick={() => { update({ location: null }); setGpsState('idle'); setJustSaved(false); }} style={{ width: 34, height: 34, borderRadius: 9, border: 'none', background: 'color-mix(in srgb, #E0564B 10%, transparent)', color: '#E0564B', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}>
+                      <Icon name="close" size={14} stroke={2.4} />
+                    </button>
+                  </>
+                )}
               </div>
             ) : (
-              <button onClick={captureLocation} disabled={gpsState === 'loading'} style={{ width: '100%', padding: '13px', borderRadius: 12, border: '1.5px dashed var(--qf-line)', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 14, color: gpsState === 'loading' ? 'var(--qf-muted)' : 'var(--qf-primary)', cursor: 'pointer' }}>
+              <button onClick={captureLocation} disabled={gpsState === 'loading'} style={{ width: '100%', padding: '13px', borderRadius: 12, border: '1.5px dashed var(--qf-line)', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'var(--qf-body)', fontWeight: 700, fontSize: 14, color: gpsState === 'loading' ? 'var(--qf-muted)' : 'var(--qf-primary)', cursor: 'pointer', touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}>
                 {gpsState === 'loading'
                   ? <><div style={{ width: 16, height: 16, borderRadius: '50%', border: '2.5px solid var(--qf-line)', borderTopColor: 'var(--qf-primary)', animation: 'qfSpin 1s linear infinite', flexShrink: 0 }} /> Locating…</>
                   : <><Icon name="location" size={17} stroke={2.2} /> Pin my current location</>}
