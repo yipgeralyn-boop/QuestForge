@@ -1,0 +1,13 @@
+{
+  "appId": "com.questforge.app",
+  "appName": "QuestForge",
+  "webDir": "dist",
+  "ios": {
+    "contentInset": "always"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 0
+    }
+  }
+}
