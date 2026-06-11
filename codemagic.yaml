@@ -20,10 +20,16 @@ workflows:
         script: npm run build
 
       - name: Add iOS platform
-        script: npx cap add ios
+        script: |
+          npx cap add ios
+          echo "=== iOS structure ==="
+          find ios -maxdepth 3 -name "Podfile" || echo "No Podfile found"
 
       - name: Install CocoaPods
-        script: cd ios/App && pod install
+        script: |
+          PODFILE=$(find ios -name "Podfile" | head -1)
+          echo "Using Podfile at: $PODFILE"
+          cd "$(dirname $PODFILE)" && pod install
 
       - name: Add privacy descriptions to Info.plist
         script: |
