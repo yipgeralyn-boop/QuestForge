@@ -21,9 +21,11 @@ workflows:
 
       - name: Add iOS platform
         script: |
-          npx cap add ios
+          set -e
+          yes | npx cap add ios || npx cap add ios
           echo "=== iOS structure ==="
-          find ios -maxdepth 3 -name "Podfile" || echo "No Podfile found"
+          ls -la ios/ || echo "ios/ dir missing"
+          find ios -maxdepth 4 -name "Podfile" || echo "No Podfile found"
 
       - name: Install CocoaPods
         script: |
