@@ -1,60 +1,114 @@
-// Stripe Payment Links — replace these with real links from your Stripe dashboard
-const STRIPE_LINKS = {
-  starter: 'https://buy.stripe.com/placeholder_starter',
-  pro: 'https://buy.stripe.com/placeholder_pro',
-};
+import { useState, useEffect } from 'react';
 
-const PLANS = [
-  {
-    id: 'free',
-    name: 'Free',
-    price: null,
-    color: '#8B8B9B',
-    features: ['Play any quest', 'Join with a code', 'Track your score'],
-    locked: ['Build quests', 'GPS check-ins', 'Photo challenges'],
-  },
-  {
-    id: 'starter',
-    name: 'Starter',
-    price: 9,
-    color: '#F97316',
-    badge: 'Popular',
-    features: ['Everything in Free', 'Build up to 3 quests', 'Up to 20 stops per quest', 'All activity types', 'GPS check-ins'],
-    locked: ['Unlimited quests'],
-  },
-  {
-    id: 'pro',
-    name: 'Pro',
-    price: 29,
-    color: '#7C3AED',
-    features: ['Everything in Starter', 'Unlimited quests', 'Unlimited stops', 'Custom branding', 'Priority support'],
-    locked: [],
-  },
-];
+// Replace with your RevenueCat API key from app.revenuecat.com
+const RC_API_KEY = 'appl_REPLACE_WITH_YOUR_REVENUECAT_KEY';
+// Must match the product ID you create in App Store Connect
+const PRODUCT_ID = 'com.geralyn.questforge.builder_monthly';
 
-function CheckIcon({ color }) {
+let _Purchases = null;
+let _initialized = false;
+
+async function getPurchases() {
+  if (_Purchases) return _Purchases;
+  try {
+    const { Capacitor } = await import('@capacitor/core');
+    if (!Capacitor.isNativePlatform()) return null;
+    const { Purchases } = await import('@revenuecat/purchases-capacitor');
+    _Purchases = Purchases;
+    return Purchases;
+  } catch {
+    return null;
+  }
+}
+
+export async function initRevenueCat() {
+  if (_initialized) return;
+  const P = await getPurchases();
+  if (!P) return;
+  try {
+    await P.configure({ apiKey: RC_API_KEY });
+    _initialized = true;
+  } catch {}
+}
+
+export async function checkEntitlement() {
+  const P = await getPurchases();
+  if (!P) return false;
+  try {
+    const { customerInfo } = await P.getCustomerInfo();
+    return !!customerInfo.entitlements.active['builder'];
+  } catch {
+    return false;
+  }
+}
+
+function FeatureRow({ text, included }) {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <circle cx="8" cy="8" r="8" fill={color} fillOpacity="0.15" />
-      <path d="M4.5 8l2.5 2.5 4.5-5" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0' }}>
+      {included ? (
+        <div style={{
+          width: 22, height: 22, borderRadius: '50%',
+          background: '#F97316', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M2 6l3 3 5-6" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+      ) : (
+        <div style={{
+          width: 22, height: 22, borderRadius: '50%',
+          border: '1.5px solid #D0CDD8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+            <path d="M3 5h4" stroke="#C0BCC8" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        </div>
+      )}
+      <span style={{ fontSize: 15, color: included ? 'var(--qf-ink)' : '#A0A0B0' }}>{text}</span>
+    </div>
   );
 }
 
-function LockIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-      <rect x="2" y="6" width="10" height="7" rx="2" stroke="#C0BFC8" strokeWidth="1.5" />
-      <path d="M4.5 6V4.5a2.5 2.5 0 015 0V6" stroke="#C0BFC8" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
+export default function PricingScreen({ onBack, onUnlocked }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-export default function PricingScreen({ currentPlan = 'free', onSelectPlan, onBack, appUrl }) {
-  const handleUpgrade = (planId) => {
-    const link = STRIPE_LINKS[planId];
-    const successUrl = encodeURIComponent(`${appUrl || window.location.origin}?plan=${planId}`);
-    window.location.href = `${link}?success_url=${successUrl}`;
+  const handleSubscribe = async () => {
+    const P = await getPurchases();
+    if (!P) { setError('Subscriptions are only available in the iOS app.'); return; }
+    setLoading(true);
+    setError('');
+    try {
+      const { offerings } = await P.getOfferings();
+      const pkg = offerings.current?.availablePackages?.find(p => p.product.productIdentifier === PRODUCT_ID)
+        || offerings.current?.availablePackages?.[0];
+      if (!pkg) { setError('Product not found. Please try again later.'); setLoading(false); return; }
+      await P.purchasePackage({ aPackage: pkg });
+      onUnlocked?.();
+    } catch (e) {
+      if (!e.userCancelled) setError('Purchase failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    const P = await getPurchases();
+    if (!P) return;
+    setLoading(true);
+    setError('');
+    try {
+      const { customerInfo } = await P.restorePurchases();
+      if (customerInfo.entitlements.active['builder']) {
+        onUnlocked?.();
+      } else {
+        setError('No active subscription found.');
+      }
+    } catch {
+      setError('Could not restore purchases.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -72,110 +126,79 @@ export default function PricingScreen({ currentPlan = 'free', onSelectPlan, onBa
           </svg>
         </button>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: 'var(--qf-accent)', textTransform: 'uppercase' }}>Plans</div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--qf-ink)', lineHeight: 1.2 }}>Choose your plan</div>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: '#F97316', textTransform: 'uppercase' }}>Builder</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--qf-ink)', lineHeight: 1.2 }}>Unlock Quest Builder</div>
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <p style={{ margin: 0, fontSize: 14, color: 'var(--qf-ink-soft)', textAlign: 'center', paddingBottom: 4 }}>
-          Build quests with a paid plan. Players always join for free.
-        </p>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 32px' }}>
+        {/* Hero */}
+        <div style={{
+          borderRadius: 24, background: 'linear-gradient(135deg, #FF8642, #E8401C)',
+          padding: '28px 24px', marginBottom: 20, textAlign: 'center',
+          boxShadow: '0 8px 32px #F9731640',
+        }}>
+          <div style={{ fontSize: 48, marginBottom: 8 }}>🗺️</div>
+          <div style={{ fontSize: 28, fontWeight: 900, color: '#fff', lineHeight: 1.1 }}>Quest Builder</div>
+          <div style={{ fontSize: 15, color: 'rgba(255,255,255,0.85)', marginTop: 6 }}>
+            Create unlimited scavenger hunts for your team, family, or event
+          </div>
+          <div style={{ marginTop: 20, display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 4 }}>
+            <span style={{ fontSize: 48, fontWeight: 900, color: '#fff' }}>$5.99</span>
+            <span style={{ fontSize: 18, color: 'rgba(255,255,255,0.75)' }}>/month</span>
+          </div>
+        </div>
 
-        {PLANS.map(plan => {
-          const isCurrent = currentPlan === plan.id;
-          return (
-            <div key={plan.id} style={{
-              borderRadius: 20,
-              border: isCurrent ? `2px solid ${plan.color}` : '2px solid transparent',
-              background: 'var(--qf-surface)',
-              overflow: 'hidden',
-              boxShadow: isCurrent ? `0 4px 20px ${plan.color}33` : '0 2px 8px rgba(0,0,0,0.06)',
-            }}>
-              {/* Plan header */}
-              <div style={{
-                background: isCurrent ? `${plan.color}18` : 'transparent',
-                padding: '16px 18px 12px',
-                display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-              }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 18, fontWeight: 800, color: plan.color }}>{plan.name}</span>
-                    {plan.badge && (
-                      <span style={{
-                        fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
-                        background: plan.color, color: '#fff',
-                        borderRadius: 20, padding: '2px 8px',
-                      }}>{plan.badge}</span>
-                    )}
-                    {isCurrent && (
-                      <span style={{
-                        fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
-                        background: 'var(--qf-ink)', color: 'var(--qf-bg)',
-                        borderRadius: 20, padding: '2px 8px',
-                      }}>Current</span>
-                    )}
-                  </div>
-                  <div style={{ marginTop: 4 }}>
-                    {plan.price ? (
-                      <span>
-                        <span style={{ fontSize: 28, fontWeight: 900, color: 'var(--qf-ink)' }}>${plan.price}</span>
-                        <span style={{ fontSize: 13, color: 'var(--qf-ink-soft)' }}>/month</span>
-                      </span>
-                    ) : (
-                      <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--qf-ink)' }}>Free</span>
-                    )}
-                  </div>
-                </div>
-              </div>
+        {/* Features */}
+        <div style={{ background: 'var(--qf-surface)', borderRadius: 20, padding: '18px 20px', marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5, color: 'var(--qf-ink-soft)', marginBottom: 12, textTransform: 'uppercase' }}>
+            What's included
+          </div>
+          <FeatureRow text="Build unlimited quests" included />
+          <FeatureRow text="Add stops on the map" included />
+          <FeatureRow text="GPS check-ins at each stop" included />
+          <FeatureRow text="Quizzes, riddles & photo challenges" included />
+          <FeatureRow text="Points & penalty scoring" included />
+          <FeatureRow text="Play quests for free" included />
+        </div>
 
-              {/* Features */}
-              <div style={{ padding: '0 18px 14px', display: 'flex', flexDirection: 'column', gap: 7 }}>
-                {plan.features.map(f => (
-                  <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <CheckIcon color={plan.color} />
-                    <span style={{ fontSize: 13, color: 'var(--qf-ink)' }}>{f}</span>
-                  </div>
-                ))}
-                {plan.locked.map(f => (
-                  <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 8, opacity: 0.45 }}>
-                    <LockIcon />
-                    <span style={{ fontSize: 13, color: 'var(--qf-ink)' }}>{f}</span>
-                  </div>
-                ))}
+        {/* Subscribe button */}
+        <button
+          onClick={handleSubscribe}
+          disabled={loading}
+          style={{
+            width: '100%', padding: '18px 0', borderRadius: 18, border: 'none',
+            background: loading ? '#CCC' : '#F97316',
+            color: '#fff', fontSize: 17, fontWeight: 800,
+            cursor: loading ? 'not-allowed' : 'pointer',
+            touchAction: 'manipulation',
+            boxShadow: loading ? 'none' : '0 6px 20px #F9731650',
+          }}
+        >
+          {loading ? 'Processing…' : 'Subscribe · $5.99/month'}
+        </button>
 
-                {/* CTA */}
-                {plan.id !== 'free' && !isCurrent && (
-                  <button
-                    onClick={() => handleUpgrade(plan.id)}
-                    style={{
-                      marginTop: 8, width: '100%', padding: '13px 0',
-                      borderRadius: 14, border: 'none',
-                      background: plan.color, color: '#fff',
-                      fontSize: 15, fontWeight: 700, cursor: 'pointer',
-                      touchAction: 'manipulation',
-                    }}
-                  >
-                    Upgrade to {plan.name} →
-                  </button>
-                )}
-                {plan.id !== 'free' && isCurrent && (
-                  <div style={{
-                    marginTop: 8, width: '100%', padding: '13px 0',
-                    borderRadius: 14, background: `${plan.color}18`,
-                    color: plan.color, fontSize: 14, fontWeight: 600,
-                    textAlign: 'center',
-                  }}>
-                    ✓ Active plan
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
+        {error ? (
+          <div style={{ marginTop: 12, textAlign: 'center', fontSize: 13, color: '#E03E3E' }}>{error}</div>
+        ) : null}
 
-        <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--qf-ink-soft)', textAlign: 'center' }}>
-          Cancel anytime. Billed monthly via Stripe.
+        {/* Restore */}
+        <button
+          onClick={handleRestore}
+          disabled={loading}
+          style={{
+            width: '100%', marginTop: 12, padding: '12px 0', borderRadius: 14,
+            border: 'none', background: 'transparent',
+            color: 'var(--qf-ink-soft)', fontSize: 14, cursor: 'pointer',
+            touchAction: 'manipulation',
+          }}
+        >
+          Restore previous purchase
+        </button>
+
+        <p style={{ textAlign: 'center', fontSize: 11, color: 'var(--qf-ink-soft)', marginTop: 8, lineHeight: 1.5 }}>
+          Subscription auto-renews monthly. Cancel anytime in iPhone Settings → Apple ID → Subscriptions.
+          Payment charged to your Apple ID.
         </p>
       </div>
     </div>
