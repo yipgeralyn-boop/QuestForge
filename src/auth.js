@@ -24,13 +24,6 @@ export async function signIn(email, password) {
   return data.user;
 }
 
-export async function signUp(email, password) {
-  if (!supabase) throw new Error('AUTH_NOT_CONFIGURED');
-  const { data, error } = await supabase.auth.signUp({ email, password });
-  if (error) throw error;
-  return data.user;
-}
-
 export async function signOut() {
   if (!supabase) return;
   await supabase.auth.signOut();
