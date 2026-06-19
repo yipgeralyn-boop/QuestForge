@@ -127,14 +127,25 @@ export default function PricingScreen({ onBack, onUnlocked }) {
           padding: '28px 24px', marginBottom: 20, textAlign: 'center',
           boxShadow: '0 8px 32px #F9731640',
         }}>
-          <div style={{ fontSize: 48, marginBottom: 8 }}>🗺️</div>
+          {/* Free trial badge */}
+          <div style={{
+            display: 'inline-block', background: 'rgba(255,255,255,0.2)',
+            borderRadius: 20, padding: '4px 14px', marginBottom: 12,
+            fontSize: 13, fontWeight: 700, color: '#fff', letterSpacing: 0.3,
+          }}>
+            🎉 7-day free trial
+          </div>
           <div style={{ fontSize: 28, fontWeight: 900, color: '#fff', lineHeight: 1.1 }}>Quest Builder</div>
           <div style={{ fontSize: 15, color: 'rgba(255,255,255,0.85)', marginTop: 6 }}>
             Create unlimited quests for your corporate teams, event, family or friends
           </div>
-          <div style={{ marginTop: 20, display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 4 }}>
-            <span style={{ fontSize: 48, fontWeight: 900, color: '#fff' }}>$5.99</span>
-            <span style={{ fontSize: 18, color: 'rgba(255,255,255,0.75)' }}>/month</span>
+          <div style={{ marginTop: 16, display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 4 }}>
+            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', marginRight: 4 }}>then</span>
+            <span style={{ fontSize: 40, fontWeight: 900, color: '#fff' }}>$5.99</span>
+            <span style={{ fontSize: 16, color: 'rgba(255,255,255,0.75)' }}>/month</span>
+          </div>
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', marginTop: 4 }}>
+            Free for 7 days, cancel anytime
           </div>
         </div>
 
@@ -164,7 +175,7 @@ export default function PricingScreen({ onBack, onUnlocked }) {
             boxShadow: loading ? 'none' : '0 6px 20px #F9731650',
           }}
         >
-          {loading ? 'Processing…' : 'Subscribe · $5.99/month'}
+          {loading ? 'Processing…' : 'Start 7-day free trial'}
         </button>
 
         {error ? (
@@ -186,8 +197,7 @@ export default function PricingScreen({ onBack, onUnlocked }) {
         </button>
 
         <p style={{ textAlign: 'center', fontSize: 11, color: 'var(--qf-ink-soft)', marginTop: 8, lineHeight: 1.5 }}>
-          Subscription auto-renews monthly. Cancel anytime in iPhone Settings → Apple ID → Subscriptions.
-          Payment charged to your Apple ID.
+          7-day free trial, then $5.99/month. Auto-renews unless cancelled at least 24 hours before the end of the trial. Cancel anytime in iPhone Settings → Apple ID → Subscriptions. Payment charged to your Apple ID after the trial.
         </p>
       </div>
     </div>
