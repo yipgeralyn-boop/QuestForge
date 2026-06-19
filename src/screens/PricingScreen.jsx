@@ -104,7 +104,7 @@ export default function PricingScreen({ onBack, onUnlocked }) {
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--qf-bg)', overflow: 'hidden' }}>
       {/* Header */}
       <div style={{ padding: '16px 20px 0', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={onBack} style={{
+        <button onPointerUp={(e) => { e.currentTarget.releasePointerCapture(e.pointerId); onBack?.(); }} style={{
           width: 36, height: 36, borderRadius: 10, border: 'none',
           background: 'var(--qf-surface)', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center',

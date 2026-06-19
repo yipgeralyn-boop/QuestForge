@@ -43,7 +43,7 @@ export function TopBar({ title, sub, onBack, action, tone = 'plain' }) {
       position: 'relative', zIndex: 5,
     }}>
       {onBack && (
-        <button onClick={onBack} style={{
+        <button onPointerUp={(e) => { e.currentTarget.releasePointerCapture(e.pointerId); onBack(); }} style={{
           width: 38, height: 38, borderRadius: 12, border: 'none', cursor: 'pointer', flexShrink: 0,
           background: onPrimary ? 'rgba(255,255,255,0.18)' : 'var(--qf-surface)',
           color: onPrimary ? '#fff' : 'var(--qf-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center',

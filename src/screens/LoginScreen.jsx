@@ -46,7 +46,7 @@ export default function LoginScreen({ onBack, onLoggedIn }) {
   if (done) {
     return (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--qf-bg)', padding: 24 }}>
-        <button onClick={onBack} style={{ alignSelf: 'flex-start', width: 36, height: 36, borderRadius: 10, border: 'none', background: 'var(--qf-surface)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'manipulation' }}>
+        <button onPointerUp={(e) => { e.currentTarget.releasePointerCapture(e.pointerId); onBack?.(); }} style={{ alignSelf: 'flex-start', width: 36, height: 36, borderRadius: 10, border: 'none', background: 'var(--qf-surface)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'manipulation' }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M15 19l-7-7 7-7" stroke="var(--qf-ink)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </button>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, textAlign: 'center' }}>
@@ -67,7 +67,7 @@ export default function LoginScreen({ onBack, onLoggedIn }) {
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--qf-bg)', overflow: 'hidden' }}>
       {/* Header */}
       <div style={{ padding: '16px 20px 0', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={onBack} style={{ width: 36, height: 36, borderRadius: 10, border: 'none', background: 'var(--qf-surface)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'manipulation' }}>
+        <button onPointerUp={(e) => { e.currentTarget.releasePointerCapture(e.pointerId); onBack?.(); }} style={{ width: 36, height: 36, borderRadius: 10, border: 'none', background: 'var(--qf-surface)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'manipulation' }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M15 19l-7-7 7-7" stroke="var(--qf-ink)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </button>
         <div>

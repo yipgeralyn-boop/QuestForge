@@ -68,6 +68,7 @@ function QFApp() {
   const [hasBuilder, setHasBuilder] = useState(() => localStorage.getItem('qf-builder') === 'true');
 
   useEffect(() => {
+    if (!supabase) return;
     getSession().then(s => { if (s) setUser(s.user); }).catch(() => {});
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
       setUser(s?.user ?? null);
