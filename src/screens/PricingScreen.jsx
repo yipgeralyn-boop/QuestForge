@@ -141,7 +141,7 @@ export default function PricingScreen({ onBack, onUnlocked }) {
           <div style={{ fontSize: 48, marginBottom: 8 }}>🗺️</div>
           <div style={{ fontSize: 28, fontWeight: 900, color: '#fff', lineHeight: 1.1 }}>Quest Builder</div>
           <div style={{ fontSize: 15, color: 'rgba(255,255,255,0.85)', marginTop: 6 }}>
-            Create unlimited scavenger hunts for your team, family, or event
+            Create unlimited quests for your corporate teams, event, family or friends
           </div>
           <div style={{ marginTop: 20, display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 4 }}>
             <span style={{ fontSize: 48, fontWeight: 900, color: '#fff' }}>$5.99</span>
