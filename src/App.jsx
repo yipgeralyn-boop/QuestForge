@@ -6,6 +6,7 @@ import HomeScreen from './screens/HomeScreen.jsx';
 import { OrgBuilder, OrgStop, OrgAddActivity, OrgPublish, OrgDashboard, OrgDetails } from './screens/OrgScreens.jsx';
 import PlayActivity from './screens/ActivityScreen.jsx';
 import { PlayJoin, PlayTeamSetup, PlayLobby, PlayMap, PlayResult, PlayRecap, qfRank } from './screens/PlayerScreens.jsx';
+import PricingScreen from './screens/PricingScreen.jsx';
 
 class ScreenErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { err: null }; }
@@ -59,6 +60,18 @@ function QFApp() {
       if (saved) return JSON.parse(saved);
     } catch {}
     return { completedIds: [], score: 0, lastEarned: 0, lastCompletedName: '', teamName: '', roster: [] };
+  });
+
+  const [plan, setPlan] = useState(() => {
+    // Check if Stripe redirected back with a plan upgrade
+    const params = new URLSearchParams(window.location.search);
+    const stripePlan = params.get('plan');
+    if (stripePlan && ['starter', 'pro'].includes(stripePlan)) {
+      localStorage.setItem('qf-plan', stripePlan);
+      window.history.replaceState({}, '', window.location.pathname);
+      return stripePlan;
+    }
+    return localStorage.getItem('qf-plan') || 'free';
   });
   const prevRankRef = useRef(null);
 
@@ -119,7 +132,8 @@ function QFApp() {
   let screen = null;
   switch (cur.name) {
     case 'home': screen = <HomeScreen {...common} play={play} onDismissResume={clearPlay} />; break;
-    case 'orgBuilder': screen = <OrgBuilder {...common} />; break;
+    case 'pricing': screen = <PricingScreen currentPlan={plan} onBack={back} />; break;
+    case 'orgBuilder': screen = plan === 'free' ? <PricingScreen currentPlan={plan} onBack={back} /> : <OrgBuilder {...common} />; break;
     case 'orgDetails': screen = <OrgDetails {...common} />; break;
     case 'orgStop': screen = <OrgStop {...common} stopId={cur.stopId} />; break;
     case 'orgAdd': screen = <OrgAddActivity {...common} stopId={cur.stopId} editIndex={cur.editIndex} />; break;
