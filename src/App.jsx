@@ -142,14 +142,16 @@ function QFApp() {
     case 'home': screen = <HomeScreen {...common} play={play} onDismissResume={clearPlay} />; break;
     case 'login': screen = <LoginScreen onBack={back} onLoggedIn={() => { back(); go({ name: 'orgBuilder' }); }} />; break;
     case 'orgBuilder':
-      if (!user) { screen = <LoginScreen onBack={back} onLoggedIn={() => { back(); go({ name: 'orgBuilder' }); }} />; break; }
-      if (!hasBuilder) { screen = <PricingScreen onBack={back} onUnlocked={() => { setHasBuilder(true); localStorage.setItem('qf-builder', 'true'); go({ name: 'orgBuilder' }); }} />; break; }
-      screen = <OrgBuilder {...common} />;
+      if (!cur.demo && !user) { screen = <LoginScreen onBack={back} onLoggedIn={() => { back(); go({ name: 'orgBuilder' }); }} />; break; }
+      if (!cur.demo && !hasBuilder) { screen = <PricingScreen onBack={back} onUnlocked={() => { setHasBuilder(true); localStorage.setItem('qf-builder', 'true'); go({ name: 'orgBuilder' }); }} />; break; }
+      screen = <OrgBuilder {...common} demo={!!cur.demo} />;
       break;
+    case 'orgPublish':
+      if (cur.demo) { screen = <PricingScreen onBack={back} onUnlocked={() => { setHasBuilder(true); localStorage.setItem('qf-builder', 'true'); go({ name: 'orgPublish' }); }} />; break; }
+      screen = <OrgPublish {...common} />; break;
     case 'orgDetails': screen = <OrgDetails {...common} />; break;
     case 'orgStop': screen = <OrgStop {...common} stopId={cur.stopId} />; break;
     case 'orgAdd': screen = <OrgAddActivity {...common} stopId={cur.stopId} editIndex={cur.editIndex} />; break;
-    case 'orgPublish': screen = <OrgPublish {...common} />; break;
     case 'orgDash': screen = <OrgDashboard {...common} play={play} setPlay={setPlay} />; break;
     case 'join': screen = <PlayJoin {...common} />; break;
     case 'teamSetup': screen = <PlayTeamSetup {...common} setTeam={(teamName, roster) => setPlay(p => ({ ...p, teamName, roster }))} />; break;
@@ -184,6 +186,23 @@ function QFApp() {
           {screen}
         </div>
       </ScreenErrorBoundary>
+
+      {/* Demo mode banner */}
+      {cur.demo && ['orgBuilder', 'orgStop', 'orgAdd', 'orgDetails'].includes(cur.name) && (
+        <button
+          onClick={() => go({ name: 'orgPublish', demo: true })}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            padding: '11px 16px', background: 'linear-gradient(90deg, #7C3AED, #5B21B6)',
+            border: 'none', color: '#fff', fontSize: 13, fontWeight: 700,
+            cursor: 'pointer', touchAction: 'manipulation', letterSpacing: 0.2,
+          }}
+        >
+          <span>🎉</span>
+          <span>You're in demo mode — subscribe to save &amp; publish</span>
+          <span style={{ opacity: 0.8 }}>→</span>
+        </button>
+      )}
 
       <TweaksPanel>
         <TweakSection label="Theme" />
