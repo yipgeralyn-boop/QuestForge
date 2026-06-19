@@ -7,6 +7,8 @@ import { OrgBuilder, OrgStop, OrgAddActivity, OrgPublish, OrgDashboard, OrgDetai
 import PlayActivity from './screens/ActivityScreen.jsx';
 import { PlayJoin, PlayTeamSetup, PlayLobby, PlayMap, PlayResult, PlayRecap, qfRank } from './screens/PlayerScreens.jsx';
 import PricingScreen, { initRevenueCat, checkEntitlement } from './screens/PricingScreen.jsx';
+import LoginScreen from './screens/LoginScreen.jsx';
+import { getSession, signOut, supabase } from './auth.js';
 
 class ScreenErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { err: null }; }
@@ -62,7 +64,17 @@ function QFApp() {
     return { completedIds: [], score: 0, lastEarned: 0, lastCompletedName: '', teamName: '', roster: [] };
   });
 
+  const [user, setUser] = useState(null);
   const [hasBuilder, setHasBuilder] = useState(() => localStorage.getItem('qf-builder') === 'true');
+
+  useEffect(() => {
+    getSession().then(s => { if (s) setUser(s.user); }).catch(() => {});
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
+      setUser(s?.user ?? null);
+      if (!s) { setHasBuilder(false); localStorage.removeItem('qf-builder'); }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     initRevenueCat().then(() => checkEntitlement()).then(active => {
@@ -128,8 +140,12 @@ function QFApp() {
   let screen = null;
   switch (cur.name) {
     case 'home': screen = <HomeScreen {...common} play={play} onDismissResume={clearPlay} />; break;
-    case 'pricing': screen = <PricingScreen onBack={back} onUnlocked={() => { setHasBuilder(true); localStorage.setItem('qf-builder', 'true'); back(); }} />; break;
-    case 'orgBuilder': screen = hasBuilder ? <OrgBuilder {...common} /> : <PricingScreen onBack={back} onUnlocked={() => { setHasBuilder(true); localStorage.setItem('qf-builder', 'true'); go({ name: 'orgBuilder' }); }} />; break;
+    case 'login': screen = <LoginScreen onBack={back} onLoggedIn={() => { back(); go({ name: 'orgBuilder' }); }} />; break;
+    case 'orgBuilder':
+      if (!user) { screen = <LoginScreen onBack={back} onLoggedIn={() => { back(); go({ name: 'orgBuilder' }); }} />; break; }
+      if (!hasBuilder) { screen = <PricingScreen onBack={back} onUnlocked={() => { setHasBuilder(true); localStorage.setItem('qf-builder', 'true'); go({ name: 'orgBuilder' }); }} />; break; }
+      screen = <OrgBuilder {...common} />;
+      break;
     case 'orgDetails': screen = <OrgDetails {...common} />; break;
     case 'orgStop': screen = <OrgStop {...common} stopId={cur.stopId} />; break;
     case 'orgAdd': screen = <OrgAddActivity {...common} stopId={cur.stopId} editIndex={cur.editIndex} />; break;
