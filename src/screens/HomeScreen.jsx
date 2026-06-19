@@ -61,15 +61,6 @@ export default function HomeScreen({ race, go, t, mapStyle, play, onDismissResum
             </div>
           </button>
 
-          {/* Try free demo card */}
-          <button onClick={() => go({ name: 'orgBuilder', demo: true })} style={{ width: '100%', marginTop: 10, padding: '13px 18px', borderRadius: 18, border: '1.5px dashed var(--qf-primary)', background: 'color-mix(in srgb, var(--qf-primary) 8%, transparent)', cursor: 'pointer', WebkitTapHighlightColor: 'transparent', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ fontSize: 22 }}>🗺️</div>
-            <div style={{ flex: 1, textAlign: 'left' }}>
-              <div style={{ fontFamily: 'var(--qf-display)', fontWeight: 700, fontSize: 15, color: 'var(--qf-primary)' }}>Try the builder — free</div>
-              <div style={{ fontFamily: 'var(--qf-body)', fontSize: 12, color: 'var(--qf-muted)', marginTop: 2 }}>Explore all features, no sign-up needed</div>
-            </div>
-            <Icon name="chevron" size={18} stroke={2.4} style={{ color: 'var(--qf-primary)', opacity: 0.7 }} />
-          </button>
 
           <button onClick={() => go({ name: 'join' })} style={{ ...bigCard('var(--qf-ink)'), marginTop: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
