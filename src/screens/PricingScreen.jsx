@@ -5,41 +5,32 @@ const RC_API_KEY = 'appl_REPLACE_WITH_YOUR_REVENUECAT_KEY';
 // Must match the product ID you create in App Store Connect
 const PRODUCT_ID = 'com.geralyn.questforge.builder_monthly';
 
-let _Purchases = null;
-let _initialized = false;
+// Stored at module level — never returned from async functions to avoid
+// Capacitor plugin proxies being mistaken as thenables by the JS runtime.
+let _P = null;
 
-async function getPurchases() {
-  if (_Purchases) return _Purchases;
+async function loadPlugin() {
+  if (_P) return;
   try {
     const { Capacitor } = await import('@capacitor/core');
-    if (!Capacitor.isNativePlatform()) return null;
-    const { Purchases } = await import('@revenuecat/purchases-capacitor');
-    _Purchases = Purchases;
-    return Purchases;
-  } catch {
-    return null;
-  }
-}
-
-export async function initRevenueCat() {
-  if (_initialized) return;
-  const P = await getPurchases();
-  if (!P) return;
-  try {
-    await P.configure({ apiKey: RC_API_KEY });
-    _initialized = true;
+    if (!Capacitor.isNativePlatform()) return;
+    const rc = await import('@revenuecat/purchases-capacitor');
+    _P = rc.Purchases; // assign synchronously, never returned from async fn
   } catch {}
 }
 
+export async function initRevenueCat() {
+  await loadPlugin();
+  if (!_P) return;
+  try { await _P.configure({ apiKey: RC_API_KEY }); } catch {}
+}
+
 export async function checkEntitlement() {
-  const P = await getPurchases();
-  if (!P) return false;
+  if (!_P) return false;
   try {
-    const { customerInfo } = await P.getCustomerInfo();
+    const { customerInfo } = await _P.getCustomerInfo();
     return !!customerInfo.entitlements.active['builder'];
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 }
 
 function FeatureRow({ text, included }) {
@@ -74,16 +65,15 @@ export default function PricingScreen({ onBack, onUnlocked }) {
   const [error, setError] = useState('');
 
   const handleSubscribe = async () => {
-    const P = await getPurchases();
-    if (!P) { setError('Subscriptions are only available in the iOS app.'); return; }
+    if (!_P) { setError('Subscriptions are only available in the iOS app.'); return; }
     setLoading(true);
     setError('');
     try {
-      const { offerings } = await P.getOfferings();
+      const { offerings } = await _P.getOfferings();
       const pkg = offerings.current?.availablePackages?.find(p => p.product.productIdentifier === PRODUCT_ID)
         || offerings.current?.availablePackages?.[0];
       if (!pkg) { setError('Product not found. Please try again later.'); setLoading(false); return; }
-      await P.purchasePackage({ aPackage: pkg });
+      await _P.purchasePackage({ aPackage: pkg });
       onUnlocked?.();
     } catch (e) {
       if (!e.userCancelled) setError('Purchase failed. Please try again.');
@@ -93,12 +83,11 @@ export default function PricingScreen({ onBack, onUnlocked }) {
   };
 
   const handleRestore = async () => {
-    const P = await getPurchases();
-    if (!P) return;
+    if (!_P) return;
     setLoading(true);
     setError('');
     try {
-      const { customerInfo } = await P.restorePurchases();
+      const { customerInfo } = await _P.restorePurchases();
       if (customerInfo.entitlements.active['builder']) {
         onUnlocked?.();
       } else {
