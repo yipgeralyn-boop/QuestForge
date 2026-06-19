@@ -140,10 +140,10 @@ function QFApp() {
   let screen = null;
   switch (cur.name) {
     case 'home': screen = <HomeScreen {...common} play={play} onDismissResume={clearPlay} />; break;
-    case 'login': screen = <LoginScreen onBack={back} onLoggedIn={() => { back(); go({ name: 'orgBuilder' }); }} />; break;
+    case 'login': screen = <LoginScreen onBack={() => go({ name: 'home' })} onLoggedIn={() => { go({ name: 'orgBuilder' }); }} />; break;
     case 'orgBuilder':
-      if (!cur.demo && !user) { screen = <LoginScreen onBack={back} onLoggedIn={() => { back(); go({ name: 'orgBuilder' }); }} />; break; }
-      if (!cur.demo && !hasBuilder) { screen = <PricingScreen onBack={back} onUnlocked={() => { setHasBuilder(true); localStorage.setItem('qf-builder', 'true'); go({ name: 'orgBuilder' }); }} />; break; }
+      if (!cur.demo && !user) { screen = <LoginScreen onBack={() => go({ name: 'home' })} onLoggedIn={() => { go({ name: 'orgBuilder' }); }} />; break; }
+      if (!cur.demo && !hasBuilder) { screen = <PricingScreen onBack={() => go({ name: 'home' })} onUnlocked={() => { setHasBuilder(true); localStorage.setItem('qf-builder', 'true'); go({ name: 'orgBuilder' }); }} />; break; }
       screen = <OrgBuilder {...common} demo={!!cur.demo} />;
       break;
     case 'orgPublish':
