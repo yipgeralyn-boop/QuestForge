@@ -25,7 +25,11 @@ export default function LoginScreen({ onBack, onLoggedIn }) {
         onLoggedIn?.();
       }
     } catch (e) {
-      setError(e.message || 'Something went wrong. Please try again.');
+      if (e.message === 'AUTH_NOT_CONFIGURED') {
+        setError('Login is not set up yet. Please contact the app owner.');
+      } else {
+        setError(e.message || 'Something went wrong. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
