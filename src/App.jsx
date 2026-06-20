@@ -6,6 +6,7 @@ import HomeScreen from './screens/HomeScreen.jsx';
 import { OrgBuilder, OrgStop, OrgAddActivity, OrgPublish, OrgDashboard, OrgDetails } from './screens/OrgScreens.jsx';
 import PlayActivity from './screens/ActivityScreen.jsx';
 import { PlayJoin, PlayTeamSetup, PlayLobby, PlayMap, PlayResult, PlayRecap, qfRank } from './screens/PlayerScreens.jsx';
+import ProScreen, { initRevenueCat, checkProEntitlement } from './screens/ProScreen.jsx';
 
 class ScreenErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { err: null }; }
@@ -60,6 +61,14 @@ function QFApp() {
     } catch {}
     return { completedIds: [], score: 0, lastEarned: 0, lastCompletedName: '', teamName: '', roster: [] };
   });
+
+  const [isPro, setIsPro] = useState(() => localStorage.getItem('qf-pro') === 'true');
+
+  useEffect(() => {
+    initRevenueCat().then(() => checkProEntitlement()).then(active => {
+      if (active) { setIsPro(true); localStorage.setItem('qf-pro', 'true'); }
+    }).catch(() => {});
+  }, []);
 
   const prevRankRef = useRef(null);
 
@@ -121,7 +130,12 @@ function QFApp() {
   switch (cur.name) {
     case 'home': screen = <HomeScreen {...common} play={play} onDismissResume={clearPlay} />; break;
     case 'orgBuilder': screen = <OrgBuilder {...common} />; break;
-    case 'orgPublish': screen = <OrgPublish {...common} />; break;
+    case 'orgPublish':
+      if (!isPro) {
+        screen = <ProScreen onBack={back} onUnlocked={() => { setIsPro(true); localStorage.setItem('qf-pro', 'true'); go({ name: 'orgPublish' }); }} />;
+        break;
+      }
+      screen = <OrgPublish {...common} />; break;
     case 'orgDetails': screen = <OrgDetails {...common} />; break;
     case 'orgStop': screen = <OrgStop {...common} stopId={cur.stopId} />; break;
     case 'orgAdd': screen = <OrgAddActivity {...common} stopId={cur.stopId} editIndex={cur.editIndex} />; break;
